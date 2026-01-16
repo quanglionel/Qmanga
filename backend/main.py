@@ -256,8 +256,54 @@ async def get_trending(page: int = 1):
         print(f"Error fetching trending: {e}")
         return {"active_manga": [], "new_manga": []}
 
+@app.get("/api/search")
+async def search_manga(q: str, source: str = None):
+    """Search for manga by title in a specific source"""
+    try:
+        if not q or len(q) < 2:
+            return {"results": []}
+        
+        # Use specified source or all sources
+        sources_to_search = {}
+        if source and source in SOURCES:
+            sources_to_search[source] = SOURCES[source]
+        else:
+            sources_to_search = SOURCES
+        
+        query_lower = q.lower()
+        results = []
+        
+        for src_id, src in sources_to_search.items():
+            try:
+                # Get trending items to search through
+                if hasattr(src, 'fetch_trending'):
+                    data = await src.fetch_trending(page=1, limit=100)
+                else:
+                    data = await src.fetch_trending_manga(page=1)
+                
+                items = data.get('active_manga', []) if isinstance(data, dict) else []
+                
+                for item in items:
+                    title = item.get('title', '').lower()
+                    if query_lower in title or title in query_lower:
+                        item['source'] = src_id
+                        results.append(item)
+                        
+            except Exception as e:
+                print(f"Search error in {src_id}: {e}")
+        
+        # Sort by title match score
+        results.sort(key=lambda x: len(x.get('title', '')))
+        
+        return {"results": results[:20]}
+        
+    except Exception as e:
+        print(f"Search error: {e}")
+        return {"results": []}
+
 
 @app.get("/api/manga/{manga_id}")
+
 async def get_manga_details(manga_id: str, source: str = None):
     try:
         # Use specified source or fall back to active source

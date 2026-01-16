@@ -315,6 +315,21 @@ async function showMangaDetails(id, source = null) {
         document.getElementById('detail-author').textContent = manga.author || 'Chưa rõ';
         document.getElementById('detail-rating').innerHTML = `<i class="fa-solid fa-star"></i> ${manga.rating || 'N/A'}`;
 
+        // Show current source and allow switching
+        const sourceInfo = document.getElementById('detail-source');
+        if (sourceInfo) {
+            const currentSource = manga.source || source || 'unknown';
+            sourceInfo.innerHTML = `
+                <span class="source-label">Nguồn: <strong>${currentSource.toUpperCase()}</strong></span>
+                <button class="btn-switch-source" onclick="showSourceSwitcher()">
+                    <i class="fa-solid fa-exchange-alt"></i> Đổi nguồn
+                </button>
+            `;
+        }
+
+        // Store manga title for source switching
+        window.currentMangaTitle = manga.title;
+
         // Use formatted description
         document.getElementById('detail-description').innerText = formatDescription(manga.description);
 
@@ -366,7 +381,83 @@ async function showMangaDetails(id, source = null) {
     }
 }
 
+// Source Switcher for manga detail
+async function showSourceSwitcher() {
+    const existing = document.getElementById('source-switcher-modal');
+    if (existing) existing.remove();
+
+    // Fetch available sources
+    let sources = [];
+    try {
+        const res = await fetch('/api/extensions');
+        sources = await res.json();
+    } catch (e) {
+        console.error('Failed to fetch sources', e);
+        return;
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'source-switcher-modal';
+    modal.className = 'chapter-modal';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+    const sourcesHtml = sources.map(src => `
+        <div class="chapter-modal-item" onclick="switchToSource('${src.id}', '${window.currentMangaTitle?.replace(/'/g, "\\'")}')">
+            <i class="fa-solid fa-globe"></i> ${src.name}
+        </div>
+    `).join('');
+
+    modal.innerHTML = `
+        <div class="chapter-modal-content">
+            <div class="chapter-modal-header">
+                <h3>Chọn nguồn khác</h3>
+                <button onclick="this.closest('.chapter-modal').remove()"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <p style="padding: 10px 16px; color: var(--text-secondary); font-size: 0.9rem;">
+                Tìm "${window.currentMangaTitle}" trong nguồn khác:
+            </p>
+            <div class="chapter-modal-list">
+                ${sourcesHtml}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+async function switchToSource(sourceId, mangaTitle) {
+    document.getElementById('source-switcher-modal')?.remove();
+
+    // Show loading
+    const chapterListUI = document.getElementById('chapter-list-ui');
+    if (chapterListUI) {
+        chapterListUI.innerHTML = '<div class="loading-spinner">Đang tìm trong nguồn ' + sourceId.toUpperCase() + '...</div>';
+    }
+
+    try {
+        // Search for this manga in the selected source
+        const searchRes = await fetch(`/api/search?q=${encodeURIComponent(mangaTitle)}&source=${sourceId}`);
+        const searchData = await searchRes.json();
+
+        if (searchData.results && searchData.results.length > 0) {
+            // Found! Load the first match
+            const match = searchData.results[0];
+            showMangaDetails(match.id, sourceId);
+        } else {
+            alert(`Không tìm thấy "${mangaTitle}" trong nguồn ${sourceId.toUpperCase()}`);
+            // Reload current
+            if (window.currentMangaId) {
+                showMangaDetails(window.currentMangaId, window.currentMangaSource);
+            }
+        }
+    } catch (error) {
+        console.error('Error switching source:', error);
+        alert('Lỗi khi chuyển nguồn. Thử lại sau.');
+    }
+}
+
 // --- Reader ---
+
 
 // Reader state
 window.currentChapterIndex = 0;

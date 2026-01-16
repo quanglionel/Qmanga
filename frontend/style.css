@@ -892,3 +892,10 @@ input:checked+.slider:before {
 .scroll-sentinel { height: 100px; display: flex; align-items: center; justify-content: center; }
 .end-of-manga { text-align: center; font-size: 1.2rem; padding: 40px; color: var(--text-secondary); }
 .chapter-loading { padding: 40px; text-align: center; }
+
+/* Source Switcher */
+.detail-source { display: flex; align-items: center; gap: 12px; margin: 10px 0; flex-wrap: wrap; }
+.source-label { font-size: 0.9rem; color: var(--text-secondary); }
+.source-label strong { color: var(--accent); }
+.btn-switch-source { background: transparent; border: 1px solid var(--glass-border); color: var(--text-primary); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; transition: var(--transition); }
+.btn-switch-source:hover { background: var(--accent); border-color: var(--accent); }

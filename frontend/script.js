@@ -382,6 +382,10 @@ async function openReader(chapter, index = null) {
     }
     window.currentChapterIndex = index !== null && index >= 0 ? index : 0;
 
+    // Reset loaded chapters tracking for new reading session
+    window.loadedChapters = [chapter.id];
+    window.isLoadingNextChapter = false;
+
     document.getElementById('reader-title').textContent = chapter.title;
     const pagesContainer = document.getElementById('reader-pages');
     pagesContainer.innerHTML = '<div class="loading-spinner">Đang tải trang...</div>';
@@ -397,6 +401,13 @@ async function openReader(chapter, index = null) {
         const data = await response.json();
 
         pagesContainer.innerHTML = '';
+
+        // Add chapter header
+        const chapterHeader = document.createElement('div');
+        chapterHeader.className = 'chapter-divider';
+        chapterHeader.innerHTML = `<span>${chapter.title}</span>`;
+        pagesContainer.appendChild(chapterHeader);
+
         data.pages.forEach(url => {
             const img = document.createElement('img');
             img.src = getImgUrl(url);
@@ -404,17 +415,14 @@ async function openReader(chapter, index = null) {
             pagesContainer.appendChild(img);
         });
 
-        // Add "Next Chapter" button at the end
-        if (window.currentChapterIndex > 0) {
-            const nextBtn = document.createElement('div');
-            nextBtn.className = 'next-chapter-btn';
-            nextBtn.innerHTML = `
-                <button class="btn-primary" onclick="nextChapter()">
-                    <i class="fa-solid fa-arrow-right"></i> Chương tiếp theo
-                </button>
-            `;
-            pagesContainer.appendChild(nextBtn);
-        }
+        // Add sentinel for infinite scroll
+        const sentinel = document.createElement('div');
+        sentinel.id = 'scroll-sentinel';
+        sentinel.className = 'scroll-sentinel';
+        pagesContainer.appendChild(sentinel);
+
+        // Setup infinite scroll observer
+        setupInfiniteScroll();
 
         // Save Progress
         if (window.currentMangaId) {
@@ -427,6 +435,7 @@ async function openReader(chapter, index = null) {
                 })
             }).catch(e => console.error("Save progress failed", e));
         }
+
 
     } catch (error) {
         console.error('Reader error:', error);
@@ -509,11 +518,120 @@ function selectChapterFromModal(index) {
 }
 
 function exitReader() {
+    // Cleanup observer
+    if (window.scrollObserver) {
+        window.scrollObserver.disconnect();
+    }
     navigateTo('detail');
+}
+
+// Infinite scroll for auto-loading next chapter
+function setupInfiniteScroll() {
+    // Cleanup previous observer
+    if (window.scrollObserver) {
+        window.scrollObserver.disconnect();
+    }
+
+    const sentinel = document.getElementById('scroll-sentinel');
+    if (!sentinel) return;
+
+    window.scrollObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && !window.isLoadingNextChapter) {
+                appendNextChapter();
+            }
+        });
+    }, {
+        rootMargin: '500px' // Start loading 500px before reaching bottom
+    });
+
+    window.scrollObserver.observe(sentinel);
+}
+
+async function appendNextChapter() {
+    // Find next chapter (chapters are ordered newest first, so next = index - 1)
+    const nextIdx = window.currentChapterIndex - 1;
+
+    if (nextIdx < 0 || nextIdx >= window.chapterList.length) {
+        // No more chapters
+        const sentinel = document.getElementById('scroll-sentinel');
+        if (sentinel) {
+            sentinel.innerHTML = '<div class="end-of-manga">🎉 Đã đọc hết truyện!</div>';
+        }
+        return;
+    }
+
+    const nextChapter = window.chapterList[nextIdx];
+
+    // Check if already loaded
+    if (window.loadedChapters && window.loadedChapters.includes(nextChapter.id)) {
+        return;
+    }
+
+    window.isLoadingNextChapter = true;
+
+    const pagesContainer = document.getElementById('reader-pages');
+    const sentinel = document.getElementById('scroll-sentinel');
+
+    // Show loading indicator
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'chapter-loading';
+    loadingDiv.innerHTML = '<div class="loading-spinner">Đang tải chương tiếp...</div>';
+    pagesContainer.insertBefore(loadingDiv, sentinel);
+
+    try {
+        const response = await fetch(`/api/chapter/${nextChapter.id}`);
+        if (!response.ok) throw new Error('Failed to load chapter');
+        const data = await response.json();
+
+        // Remove loading indicator
+        loadingDiv.remove();
+
+        // Add chapter divider
+        const divider = document.createElement('div');
+        divider.className = 'chapter-divider';
+        divider.innerHTML = `<span>${nextChapter.title}</span>`;
+        pagesContainer.insertBefore(divider, sentinel);
+
+        // Add pages
+        data.pages.forEach(url => {
+            const img = document.createElement('img');
+            img.src = getImgUrl(url);
+            img.loading = 'lazy';
+            pagesContainer.insertBefore(img, sentinel);
+        });
+
+        // Update state
+        window.currentChapterIndex = nextIdx;
+        window.loadedChapters.push(nextChapter.id);
+
+        // Update title
+        document.getElementById('reader-title').textContent = nextChapter.title;
+        updateReaderNavigation();
+
+        // Save progress
+        if (window.currentMangaId) {
+            fetch(`/api/progress/${window.currentMangaId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chapter_id: nextChapter.id,
+                    chapter_title: nextChapter.title
+                })
+            }).catch(e => console.error("Save progress failed", e));
+        }
+
+    } catch (error) {
+        console.error('Error loading next chapter:', error);
+        loadingDiv.innerHTML = '<p class="error-msg">Không thể tải chương tiếp theo</p>';
+    }
+
+    window.isLoadingNextChapter = false;
 }
 
 
 // --- Library ---
+
 
 async function fetchLibrary() {
     const grid = document.getElementById('library-grid');

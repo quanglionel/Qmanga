@@ -885,3 +885,10 @@ input:checked+.slider:before {
 .chapter-modal-item { padding: 14px 16px; border-bottom: 1px solid var(--glass-border); cursor: pointer; transition: var(--transition); }
 .chapter-modal-item:hover { background: rgba(255,255,255,0.05); }
 .chapter-modal-item.active { background: var(--accent); color: white; }
+
+/* Chapter Divider & Infinite Scroll */
+.chapter-divider { padding: 20px; text-align: center; background: linear-gradient(to bottom, var(--bg-dark), var(--bg-secondary), var(--bg-dark)); margin: 20px 0; }
+.chapter-divider span { background: var(--accent); color: white; padding: 10px 24px; border-radius: 20px; font-weight: 600; font-size: 0.95rem; display: inline-block; }
+.scroll-sentinel { height: 100px; display: flex; align-items: center; justify-content: center; }
+.end-of-manga { text-align: center; font-size: 1.2rem; padding: 40px; color: var(--text-secondary); }
+.chapter-loading { padding: 40px; text-align: center; }

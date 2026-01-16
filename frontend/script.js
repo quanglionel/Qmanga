@@ -319,27 +319,29 @@ async function showMangaDetails(id, source = null) {
         document.getElementById('detail-description').innerText = formatDescription(manga.description);
 
         // Populate Chapters
-        const chapterList = document.getElementById('chapter-list-ui');
-        chapterList.innerHTML = '';
+        const chapterListUI = document.getElementById('chapter-list-ui');
+        chapterListUI.innerHTML = '';
+
+        // Save chapters for reader navigation
+        window.chapterList = manga.chapters || [];
 
         let firstChapter = null;
         if (manga.chapters && manga.chapters.length > 0) {
             // Assume the last chapter in the list is the first chapter (oldest)
             firstChapter = manga.chapters[manga.chapters.length - 1];
 
-            manga.chapters.forEach(chap => {
+            manga.chapters.forEach((chap, idx) => {
                 const li = document.createElement('li');
                 li.classList.add('chapter-item');
-                // Pass chapter ojbect directly
-                li.onclick = () => openReader(chap);
+                li.onclick = () => openReader(chap, idx);
                 li.innerHTML = `
                     <span class="chapter-title">${chap.title}</span>
                     <span class="chapter-date">${chap.date}</span>
                 `;
-                chapterList.appendChild(li);
+                chapterListUI.appendChild(li);
             });
         } else {
-            chapterList.innerHTML = '<p style="color:var(--text-secondary)">Chưa có chương nào.</p>';
+            chapterListUI.innerHTML = '<p style="color:var(--text-secondary)">Chưa có chương nào.</p>';
         }
 
         // Update Buttons
@@ -352,8 +354,10 @@ async function showMangaDetails(id, source = null) {
         `;
 
         if (firstChapter) {
-            document.getElementById(uniqueBtnId).onclick = () => openReader(firstChapter);
+            const firstIdx = manga.chapters.length - 1;
+            document.getElementById(uniqueBtnId).onclick = () => openReader(firstChapter, firstIdx);
         }
+
 
         navigateTo('detail');
 
@@ -364,10 +368,26 @@ async function showMangaDetails(id, source = null) {
 
 // --- Reader ---
 
-async function openReader(chapter) {
+// Reader state
+window.currentChapterIndex = 0;
+window.chapterList = [];
+window.currentChapter = null;
+
+async function openReader(chapter, index = null) {
+    window.currentChapter = chapter;
+
+    // Find chapter index in list if not provided
+    if (index === null && window.chapterList.length > 0) {
+        index = window.chapterList.findIndex(c => c.id === chapter.id);
+    }
+    window.currentChapterIndex = index !== null && index >= 0 ? index : 0;
+
     document.getElementById('reader-title').textContent = chapter.title;
     const pagesContainer = document.getElementById('reader-pages');
     pagesContainer.innerHTML = '<div class="loading-spinner">Đang tải trang...</div>';
+
+    // Update navigation buttons
+    updateReaderNavigation();
 
     navigateTo('reader');
 
@@ -379,11 +399,22 @@ async function openReader(chapter) {
         pagesContainer.innerHTML = '';
         data.pages.forEach(url => {
             const img = document.createElement('img');
-            // Use proxy for reader images too if they are from mangadex
             img.src = getImgUrl(url);
             img.loading = 'lazy';
             pagesContainer.appendChild(img);
         });
+
+        // Add "Next Chapter" button at the end
+        if (window.currentChapterIndex > 0) {
+            const nextBtn = document.createElement('div');
+            nextBtn.className = 'next-chapter-btn';
+            nextBtn.innerHTML = `
+                <button class="btn-primary" onclick="nextChapter()">
+                    <i class="fa-solid fa-arrow-right"></i> Chương tiếp theo
+                </button>
+            `;
+            pagesContainer.appendChild(nextBtn);
+        }
 
         // Save Progress
         if (window.currentMangaId) {
@@ -403,9 +434,84 @@ async function openReader(chapter) {
     }
 }
 
+function updateReaderNavigation() {
+    const navContainer = document.getElementById('reader-nav');
+    if (!navContainer) return;
+
+    const hasPrev = window.currentChapterIndex < window.chapterList.length - 1;
+    const hasNext = window.currentChapterIndex > 0;
+
+    navContainer.innerHTML = `
+        <button class="btn-nav" onclick="prevChapter()" ${!hasPrev ? 'disabled' : ''}>
+            <i class="fa-solid fa-chevron-left"></i> Trước
+        </button>
+        <button class="btn-nav chapter-select-btn" onclick="showChapterSelector()">
+            <i class="fa-solid fa-list"></i> Chương ${window.currentChapterIndex + 1}/${window.chapterList.length}
+        </button>
+        <button class="btn-nav" onclick="nextChapter()" ${!hasNext ? 'disabled' : ''}>
+            Sau <i class="fa-solid fa-chevron-right"></i>
+        </button>
+    `;
+}
+
+function prevChapter() {
+    if (window.currentChapterIndex < window.chapterList.length - 1) {
+        const prevChap = window.chapterList[window.currentChapterIndex + 1];
+        openReader(prevChap, window.currentChapterIndex + 1);
+        window.scrollTo(0, 0);
+    }
+}
+
+function nextChapter() {
+    if (window.currentChapterIndex > 0) {
+        const nextChap = window.chapterList[window.currentChapterIndex - 1];
+        openReader(nextChap, window.currentChapterIndex - 1);
+        window.scrollTo(0, 0);
+    }
+}
+
+function showChapterSelector() {
+    const existing = document.getElementById('chapter-selector-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'chapter-selector-modal';
+    modal.className = 'chapter-modal';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+    let chaptersHtml = window.chapterList.map((chap, idx) => `
+        <div class="chapter-modal-item ${idx === window.currentChapterIndex ? 'active' : ''}" 
+             onclick="selectChapterFromModal(${idx})">
+            ${chap.title}
+        </div>
+    `).join('');
+
+    modal.innerHTML = `
+        <div class="chapter-modal-content">
+            <div class="chapter-modal-header">
+                <h3>Chọn Chương</h3>
+                <button onclick="this.closest('.chapter-modal').remove()"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="chapter-modal-list">
+                ${chaptersHtml}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+function selectChapterFromModal(index) {
+    document.getElementById('chapter-selector-modal')?.remove();
+    const chap = window.chapterList[index];
+    openReader(chap, index);
+    window.scrollTo(0, 0);
+}
+
 function exitReader() {
     navigateTo('detail');
 }
+
 
 // --- Library ---
 
@@ -477,7 +583,7 @@ async function fetchHomeLibrary() {
     }
 }
 
-// --- Extensions ---
+// --- Extensions (Sources Info) ---
 
 async function fetchExtensions() {
     const list = document.getElementById('extensions-list');
@@ -487,13 +593,12 @@ async function fetchExtensions() {
         const response = await fetch('/api/extensions');
         const data = await response.json();
 
-        list.innerHTML = '';
+        list.innerHTML = '<p style="color: var(--text-secondary); margin-bottom: 1rem;">Qmanga tự động gộp truyện từ tất cả nguồn bên dưới:</p>';
+
         data.forEach(ext => {
             const item = document.createElement('div');
             item.classList.add('extension-item');
-            if (ext.active) item.classList.add('active-source');
 
-            // Use proxy for icons to avoid broken images
             const iconUrl = ext.icon ? getImgUrl(ext.icon) : 'https://via.placeholder.com/40';
 
             item.innerHTML = `
@@ -504,10 +609,8 @@ async function fetchExtensions() {
                         <div class="ext-lang">${ext.language || 'N/A'}</div>
                     </div>
                 </div>
-                <div>
-                     ${ext.active
-                    ? '<button class="btn-small btn-settings" disabled>Đang dùng</button>'
-                    : `<button class="btn-small btn-install" onclick="selectSource('${ext.id}')">Sử dụng</button>`}
+                <div class="ext-status">
+                    <span style="color: var(--accent);"><i class="fa-solid fa-check-circle"></i> Đang hoạt động</span>
                 </div>
             `;
             list.appendChild(item);
@@ -517,6 +620,7 @@ async function fetchExtensions() {
         list.innerHTML = '<p class="error-msg">Không thể tải danh sách nguồn.</p>';
     }
 }
+
 
 async function selectSource(id) {
     try {

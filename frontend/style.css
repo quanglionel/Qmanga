@@ -866,3 +866,22 @@ input:checked+.slider:before {
 .unread-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; align-self: center; }
 
 .source-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 600; backdrop-filter: blur(4px); z-index: 5; text-transform: uppercase; }
+
+/* Reader Navigation */
+.reader-nav { display: flex; justify-content: center; gap: 10px; padding: 12px; background: var(--bg-secondary); border-bottom: 1px solid var(--glass-border); position: sticky; top: 60px; z-index: 100; }
+.btn-nav { padding: 8px 16px; border: 1px solid var(--glass-border); border-radius: 8px; background: var(--bg-dark); color: var(--text-primary); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: var(--transition); }
+.btn-nav:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
+.btn-nav:disabled { opacity: 0.4; cursor: not-allowed; }
+.chapter-select-btn { min-width: 150px; justify-content: center; }
+.next-chapter-btn { padding: 40px 20px; text-align: center; background: linear-gradient(to bottom, transparent, var(--bg-secondary)); }
+.next-chapter-btn .btn-primary { padding: 16px 32px; font-size: 1.1rem; }
+/* Chapter Modal */
+.chapter-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+.chapter-modal-content { background: var(--bg-secondary); border-radius: 16px; width: 90%; max-width: 400px; max-height: 70vh; overflow: hidden; }
+.chapter-modal-header { padding: 16px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; }
+.chapter-modal-header h3 { margin: 0; }
+.chapter-modal-header button { background: none; border: none; color: var(--text-primary); font-size: 1.2rem; cursor: pointer; }
+.chapter-modal-list { max-height: 50vh; overflow-y: auto; }
+.chapter-modal-item { padding: 14px 16px; border-bottom: 1px solid var(--glass-border); cursor: pointer; transition: var(--transition); }
+.chapter-modal-item:hover { background: rgba(255,255,255,0.05); }
+.chapter-modal-item.active { background: var(--accent); color: white; }

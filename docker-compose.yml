@@ -1,0 +1,13 @@
+services:
+  qmanga:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - qmanga_data:/app/backend
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+
+volumes:
+  qmanga_data:

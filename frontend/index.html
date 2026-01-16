@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qmanga - Premium Manga Reader</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-book-open"></i> <span>Qmanga</span>
+            </div>
+            <ul class="nav-links">
+                <li class="active"><a href="#"><i class="fa-solid fa-house"></i> Trang Chủ</a></li>
+                <li><a href="#"><i class="fa-solid fa-compass"></i> Khám Phá</a></li>
+                <li><a href="#"><i class="fa-solid fa-bookmark"></i> Thư Viện</a></li>
+                <li><a href="#"><i class="fa-solid fa-clock-rotate-left"></i> Lịch Sử</a></li>
+                <li><a href="#"><i class="fa-solid fa-gear"></i> Cài Đặt</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="search-bar">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" placeholder="Tìm kiếm truyện, tác giả...">
+                </div>
+                <div class="user-profile">
+                    <div id="notification-bell" class="notification-wrapper">
+                        <div class="notification-dot hidden" id="notif-dot"></div>
+                        <i class="fa-regular fa-bell"></i>
+                        <div class="notification-dropdown hidden" id="notif-dropdown">
+                            <div class="notif-header">
+                                <h3>Thông báo</h3>
+                                <button onclick="markAllRead()" class="btn-text">Đánh dấu tất cả là đã đọc</button>
+                            </div>
+                            <div class="notif-list" id="notif-list">
+                                <!-- Populated by JS -->
+                                <p class="empty-notif">Không có thông báo mới.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="avatar">
+                        <img src="https://ui-avatars.com/api/?name=User&background=6366f1&color=fff" alt="User">
+                    </div>
+                </div>
+            </header>
+
+            <!-- Views -->
+            <div id="home-view" class="view-section">
+                <!-- Library (Followed) Section - Prioritized -->
+                <section class="content-section" id="home-library-section">
+                    <div class="section-header">
+                        <h2>Truyện Đang Theo Dõi</h2>
+                        <a href="#" onclick="navigateTo('library')" class="see-all">Xem tất cả</a>
+                    </div>
+                    <div class="manga-scroll-row" id="home-library-grid">
+                        <!-- Populated if library has items -->
+                        <div class="loading-skeleton"></div>
+                    </div>
+                </section>
+
+                <section class="content-section hidden" id="new-manga-section">
+                    <div class="section-header">
+                        <h2>Truyện Mới (Sắp có)</h2>
+                    </div>
+                    <!-- Horizontal scroll row for New Manga -->
+                    <div class="manga-scroll-row" id="new-manga-grid"></div>
+                </section>
+
+                <section class="content-section">
+                    <div class="section-header">
+                        <h2>Truyện Mới Cập Nhật</h2>
+                    </div>
+                    <!-- Grid for Active Manga (Has Chapters) -->
+                    <div class="manga-grid" id="trending-grid">
+                        <div class="loading-skeleton"></div>
+                        <div class="loading-skeleton"></div>
+                        <div class="loading-skeleton"></div>
+                    </div>
+                </section>
+            </div>
+
+            <div id="library-view" class="view-section hidden">
+                <h2>Thư Viện Của Bạn</h2>
+                <div class="manga-grid" id="library-grid">
+                    <p class="empty-state">Thư viện trống. Hãy thêm truyện ngay!</p>
+                </div>
+            </div>
+
+            <div id="history-view" class="view-section hidden">
+                <h2>Lịch Sử Đọc Truyện</h2>
+                <div class="manga-grid" id="history-grid">
+                    <p class="empty-state">Chưa có lịch sử đọc truyện.</p>
+                </div>
+            </div>
+
+            <div id="browse-view" class="view-section hidden">
+                <h2>Nguồn Truyện</h2>
+                <div class="extensions-list" id="extensions-list">
+                    <!-- JS populated -->
+                </div>
+            </div>
+
+            <div id="settings-view" class="view-section hidden">
+                <h2>Cài Đặt</h2>
+                <div class="settings-container">
+
+                    <div class="settings-group">
+                        <h3>Giao Diện</h3>
+                        <div class="setting-item">
+                            <div class="setting-label">
+                                <span>Chế độ Tối</span>
+                                <span class="setting-desc">Sử dụng giao diện tối</span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="theme-toggle" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-label">
+                                <span>Màu Chủ Đạo</span>
+                                <span class="setting-desc">Chọn màu yêu thích của bạn</span>
+                            </div>
+                            <div class="color-picker">
+                                <div class="color-dot active" style="background:#6366f1"
+                                    onclick="setAccent('#6366f1', this)"></div>
+                                <div class="color-dot" style="background:#ec4899" onclick="setAccent('#ec4899', this)">
+                                </div>
+                                <div class="color-dot" style="background:#10b981" onclick="setAccent('#10b981', this)">
+                                </div>
+                                <div class="color-dot" style="background:#f59e0b" onclick="setAccent('#f59e0b', this)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3>Trình Đọc</h3>
+                        <div class="setting-item">
+                            <div class="setting-label">
+                                <span>Kiểu Đọc</span>
+                            </div>
+                            <select id="reader-mode" class="setting-select">
+                                <option value="webtoon">Webtoon (Cuộn dọc)</option>
+                                <option value="ltr">Trái sang Phải</option>
+                                <option value="rtl">Phải sang Trái (Manga)</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-label">
+                                <span>Hiện số trang</span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3>Dữ Liệu</h3>
+                        <div class="setting-item">
+                            <div class="setting-label">
+                                <span>Xóa Bộ Nhớ Đệm</span>
+                                <span class="setting-desc">Giải phóng dung lượng ảnh đã lưu</span>
+                            </div>
+                            <button class="btn-secondary btn-sm">Xóa</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="detail-view" class="view-section hidden">
+                <button class="btn-back" onclick="navigateTo('home')"><i class="fa-solid fa-arrow-left"></i>
+                    Back</button>
+                <div class="manga-detail-header">
+                    <img id="detail-cover" src="" alt="" class="detail-cover">
+                    <div class="detail-info">
+                        <h1 id="detail-title">Manga Title</h1>
+                        <div class="detail-meta">
+                            <span id="detail-author">Author</span>
+                            <span class="dot">•</span>
+                            <span id="detail-status">Ongoing</span>
+                            <span class="dot">•</span>
+                            <span id="detail-rating" class="rating"><i class="fa-solid fa-star"></i> 4.5</span>
+                        </div>
+                        <p id="detail-description">Description goes here...</p>
+                        <div class="action-buttons">
+                            <button class="btn-primary">Add to Library</button>
+                            <button class="btn-secondary">Start Reading</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="chapter-list">
+                    <h3>Chapters</h3>
+                    <ul id="chapter-list-ui">
+                        <!-- JS populated -->
+                    </ul>
+                </div>
+            </div>
+
+            <div id="reader-view" class="view-section hidden">
+                <div class="reader-toolbar">
+                    <button class="btn-icon" onclick="exitReader()"><i class="fa-solid fa-arrow-left"></i></button>
+                    <span id="reader-title">Chapter 1</span>
+                    <button class="btn-icon"><i class="fa-solid fa-gear"></i></button>
+                </div>
+                <div id="reader-pages">
+                    <!-- Images go here -->
+                </div>
+            </div>
+
+        </main>
+    </div>
+    <script src="script.js?v=1.3"></script>
+</body>
+
+</html>

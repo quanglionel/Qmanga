@@ -1,0 +1,33 @@
+# Dependencies
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+
+# Data files (contain user data)
+*.json
+!package.json
+
+# IDE
+.vscode/
+.idea/
+
+# Debug files
+debug_*.py
+test_*.py
+scan_*.py
+verify_*.py
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Cache
+*_cache/

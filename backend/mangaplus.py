@@ -65,7 +65,7 @@ class MangaPlusSource(BaseSource):
                     })
                 
                 result = {"active_manga": results, "new_manga": []}
-                self.save_to_cache(cache_key, result)
+                self.set_cache(cache_key, result)
                 return result
                 
             except Exception as e:
@@ -118,7 +118,7 @@ class MangaPlusSource(BaseSource):
                     "rating": None
                 }
                 
-                self.save_to_cache(cache_key, result)
+                self.set_cache(cache_key, result)
                 return result
                 
             except Exception as e:

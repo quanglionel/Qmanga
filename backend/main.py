@@ -162,6 +162,37 @@ SOURCES = {
 # Add new sources
 SOURCES.update(NEW_SOURCES)
 
+# --- Dynamic Domain Sync Integration ---
+from domain_sync import sync_domains, get_cached_domains
+
+def apply_dynamic_domains():
+    cached = get_cached_domains()
+    if not cached:
+        return
+    
+    print(f"[Main] Đang áp dụng {len(cached)} tên miền từ cache...")
+    for source_id, base_url in cached.items():
+        if source_id in SOURCES:
+            # Ensure base_url ends with / or matches source requirements
+            # Most scrapers expect it without trailing slash or handle it
+            SOURCES[source_id].base_url = base_url.rstrip('/')
+            if hasattr(SOURCES[source_id], 'headers'):
+                SOURCES[source_id].headers["Referer"] = base_url
+
+apply_dynamic_domains()
+
+@app.on_event("startup")
+async def startup_event():
+    # Run sync in background on startup
+    asyncio.create_task(sync_domains_periodically())
+
+async def sync_domains_periodically():
+    while True:
+        await sync_domains()
+        apply_dynamic_domains()
+        # Sync every 6 hours
+        await asyncio.sleep(6 * 3600)
+
 
 
 ACTIVE_SOURCE_FILE = "active_source.json"

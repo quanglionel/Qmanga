@@ -91,7 +91,7 @@ class ManhwatopSource(BaseSource):
                         break
                 
                 result = {"active_manga": results[:limit], "new_manga": []}
-                self.save_to_cache(cache_key, result)
+                self.set_cache(cache_key, result)
                 return result
                 
             except Exception as e:
@@ -159,7 +159,7 @@ class ManhwatopSource(BaseSource):
                     "rating": None
                 }
                 
-                self.save_to_cache(cache_key, result)
+                self.set_cache(cache_key, result)
                 return result
                 
             except Exception as e:

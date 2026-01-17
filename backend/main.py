@@ -133,6 +133,7 @@ def get_source():
     return SOURCES.get(ACTIVE_SOURCE_ID, otruyen)
 
 @app.get("/api/sources")
+@app.get("/api/extensions")
 async def get_sources():
     """Return all available sources and which one is active"""
     results = []
@@ -220,20 +221,42 @@ def load_data():
 load_data()
 
 def normalize_title(title: str) -> str:
-    """Normalize title for duplicate detection"""
+    """Normalize title for duplicate detection (removes diacritics, special chars, and spaces)"""
     import re
-    # Remove special chars, lowercase, remove spaces
-    normalized = re.sub(r'[^\w\s]', '', title.lower())
+    import unicodedata
+    
+    if not title:
+        return ""
+        
+    # Lowercase
+    text = title.lower()
+    
+    # Normalize unicode (NFD decomposes characters into base + diacritic)
+    text = unicodedata.normalize('NFD', text)
+    # Filter out diacritics (Non-spacing Mark category)
+    text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
+    # Manual fixes for D/d
+    text = text.replace('đ', 'd').replace('Đ', 'D')
+    
+    # Remove special chars and spaces
+    normalized = re.sub(r'[^\w\s]', '', text)
     normalized = re.sub(r'\s+', '', normalized)
     return normalized
 
+
 @app.get("/api/trending")
-async def get_trending(page: int = 1):
-    """Fetch trending from ALL sources and merge results"""
+async def get_trending(page: int = 1, sources: str = None):
+    """Fetch trending from selected sources and merge results with smart deduplication"""
     try:
-        print(f"[API] Đang lấy trending từ TẤT CẢ nguồn, trang: {page}")
+        # Parse source filter
+        if sources:
+            selected_sources = [s.strip() for s in sources.split(',') if s.strip() in SOURCES]
+        else:
+            selected_sources = list(SOURCES.keys())
         
-        # Fetch from all sources in parallel
+        print(f"[API] Đang lấy trending từ {len(selected_sources)} nguồn: {selected_sources}, trang: {page}")
+        
+        # Fetch from selected sources in parallel
         async def fetch_from_source(source_id, source):
             try:
                 if hasattr(source, 'fetch_trending'):
@@ -251,29 +274,75 @@ async def get_trending(page: int = 1):
                 print(f"[API] Lỗi từ {source_id}: {e}")
                 return []
         
-        # Create tasks for all sources
+        # Create tasks for selected sources only
         tasks = []
-        for source_id, source in SOURCES.items():
-            tasks.append(fetch_from_source(source_id, source))
+        for source_id in selected_sources:
+            if source_id in SOURCES:
+                tasks.append(fetch_from_source(source_id, SOURCES[source_id]))
         
         # Wait for all sources
         all_results = await asyncio.gather(*tasks)
         
-        # Merge and deduplicate
-        seen_titles = set()
-        merged = []
+        # Smart deduplication: keep manga with latest chapter / most recent update
+        title_to_manga = {}  # normalized_title -> best manga item
+        
+        def extract_chapter_number(chapter_str):
+            """Extract chapter number from string like 'Chapter 123' or 'Chap 123.5'"""
+            if not chapter_str:
+                return 0
+            import re
+            match = re.search(r'(\d+(?:\.\d+)?)', str(chapter_str))
+            return float(match.group(1)) if match else 0
+        
+        def parse_update_time(time_str):
+            """Convert update time to sortable value (higher = more recent)"""
+            if not time_str:
+                return 0
+            time_str = str(time_str).lower()
+            
+            # Handle relative times
+            if 'giây' in time_str or 'second' in time_str:
+                return 1000000
+            if 'phút' in time_str or 'minute' in time_str:
+                return 100000
+            if 'giờ' in time_str or 'hour' in time_str:
+                return 10000
+            if 'ngày' in time_str or 'day' in time_str:
+                return 1000
+            if 'tuần' in time_str or 'week' in time_str:
+                return 100
+            if 'tháng' in time_str or 'month' in time_str:
+                return 10
+            if 'năm' in time_str or 'year' in time_str:
+                return 1
+            return 0
         
         for source_items in all_results:
             for item in source_items:
                 normalized = normalize_title(item.get('title', ''))
-                if normalized and normalized not in seen_titles:
-                    seen_titles.add(normalized)
-                    merged.append(item)
+                if not normalized:
+                    continue
+                
+                current_chapter = extract_chapter_number(item.get('latest_chapter', ''))
+                current_update = parse_update_time(item.get('update_time', ''))
+                
+                if normalized in title_to_manga:
+                    existing = title_to_manga[normalized]
+                    existing_chapter = extract_chapter_number(existing.get('latest_chapter', ''))
+                    existing_update = parse_update_time(existing.get('update_time', ''))
+                    
+                    # Keep the one with higher chapter number, or if equal, more recent update
+                    if current_chapter > existing_chapter:
+                        title_to_manga[normalized] = item
+                    elif current_chapter == existing_chapter and current_update > existing_update:
+                        title_to_manga[normalized] = item
+                else:
+                    title_to_manga[normalized] = item
         
-        # Limit to 100 items
-        merged = merged[:100]
+        # Convert back to list and limit
+        merged = list(title_to_manga.values())[:100]
         
-        print(f"[API] Tổng cộng: {len(merged)} truyện từ {len(SOURCES)} nguồn")
+        print(f"[API] Tổng cộng: {len(merged)} truyện (đã loại trùng thông minh)")
         
         return {
             "active_manga": merged,

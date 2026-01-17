@@ -88,7 +88,28 @@
                 <section class="content-section">
                     <div class="section-header">
                         <h2>Truyện Mới Cập Nhật</h2>
+                        <button class="btn-filter" onclick="toggleSourceFilter()">
+                            <i class="fa-solid fa-filter"></i> Lọc nguồn
+                        </button>
                     </div>
+
+                    <!-- Source Filter Panel -->
+                    <div class="source-filter-panel hidden" id="source-filter-panel">
+                        <div class="filter-header">
+                            <span>Chọn nguồn hiển thị:</span>
+                            <div class="filter-actions">
+                                <button onclick="selectAllSources()">Chọn tất cả</button>
+                                <button onclick="deselectAllSources()">Bỏ chọn</button>
+                            </div>
+                        </div>
+                        <div class="filter-sources" id="filter-sources-list">
+                            <!-- Populated by JS -->
+                        </div>
+                        <button class="btn-apply-filter" onclick="applySourceFilter()">
+                            <i class="fa-solid fa-check"></i> Áp dụng
+                        </button>
+                    </div>
+
                     <!-- Grid for Active Manga (Has Chapters) -->
                     <div class="manga-grid" id="trending-grid">
                         <div class="loading-skeleton"></div>

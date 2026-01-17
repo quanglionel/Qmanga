@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    loadSelectedSources(); // Load previous filter selection
     fetchHomeLibrary();
     fetchTrendingManga();
     setupNavigation();
@@ -137,6 +138,99 @@ function timeSince(dateString) {
     return "Vừa xong";
 }
 
+// --- Source Filter ---
+let availableSources = [];
+let selectedSources = [];
+
+function loadSelectedSources() {
+    const saved = localStorage.getItem('selectedSources');
+    if (saved) {
+        try {
+            selectedSources = JSON.parse(saved);
+        } catch (e) {
+            selectedSources = [];
+        }
+    }
+}
+
+function saveSelectedSources() {
+    localStorage.setItem('selectedSources', JSON.stringify(selectedSources));
+}
+
+async function initSourceFilter() {
+    try {
+        const res = await fetch('/api/extensions');
+        availableSources = await res.json();
+
+        // Load saved selection or select all by default
+        loadSelectedSources();
+        if (selectedSources.length === 0) {
+            selectedSources = availableSources.map(s => s.id);
+        }
+
+        renderSourceFilter();
+    } catch (e) {
+        console.error('Failed to load sources for filter', e);
+    }
+}
+
+function renderSourceFilter() {
+    const container = document.getElementById('filter-sources-list');
+    if (!container) return;
+
+    container.innerHTML = availableSources.map(src => `
+        <div class="filter-source-item ${selectedSources.includes(src.id) ? 'selected' : ''}" 
+             data-source-id="${src.id}" onclick="toggleSourceSelection('${src.id}')">
+            <span class="check-icon">${selectedSources.includes(src.id) ? '<i class="fa-solid fa-check"></i>' : ''}</span>
+            <span class="source-name">${src.name}</span>
+        </div>
+    `).join('');
+}
+
+function toggleSourceFilter() {
+    const panel = document.getElementById('source-filter-panel');
+    const btn = document.querySelector('.btn-filter');
+
+    if (panel.classList.contains('hidden')) {
+        panel.classList.remove('hidden');
+        btn.classList.add('active');
+        if (availableSources.length === 0) {
+            initSourceFilter();
+        }
+    } else {
+        panel.classList.add('hidden');
+        btn.classList.remove('active');
+    }
+}
+
+function toggleSourceSelection(sourceId) {
+    const idx = selectedSources.indexOf(sourceId);
+    if (idx > -1) {
+        selectedSources.splice(idx, 1);
+    } else {
+        selectedSources.push(sourceId);
+    }
+    renderSourceFilter();
+}
+
+function selectAllSources() {
+    selectedSources = availableSources.map(s => s.id);
+    renderSourceFilter();
+}
+
+function deselectAllSources() {
+    selectedSources = [];
+    renderSourceFilter();
+}
+
+function applySourceFilter() {
+    saveSelectedSources();
+    toggleSourceFilter(); // Close panel
+    fetchTrendingManga(1); // Reload with filter
+}
+
+
+
 async function fetchTrendingManga(page = 1) {
     const grid = document.getElementById('trending-grid');
     const newMangaGrid = document.getElementById('new-manga-grid');
@@ -155,7 +249,20 @@ async function fetchTrendingManga(page = 1) {
     grid.innerHTML = `<div class="loading-skeleton"></div><div class="loading-skeleton"></div><div class="loading-skeleton"></div>`;
 
     try {
-        const response = await fetch(`/api/trending?page=${page}`);
+        // Build URL with source filter
+        let url = `/api/trending?page=${page}`;
+
+        // Load saved sources if not already loaded
+        if (selectedSources.length === 0) {
+            loadSelectedSources();
+        }
+
+        // Add sources filter if not all sources selected
+        if (selectedSources.length > 0) {
+            url += `&sources=${selectedSources.join(',')}`;
+        }
+
+        const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to fetch');
         const data = await response.json();
 

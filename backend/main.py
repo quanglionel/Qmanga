@@ -65,6 +65,25 @@ from nettruyen import nettruyen
 from truyenqq import truyenqq
 from blogtruyen import blogtruyen
 
+# New sources
+try:
+    from mangaplus import MangaPlusSource
+    mangaplus = MangaPlusSource()
+except:
+    mangaplus = None
+
+try:
+    from manhwatop import ManhwatopSource
+    manhwatop = ManhwatopSource()
+except:
+    manhwatop = None
+
+try:
+    from mangakakalot import MangakakalotSource
+    mangakakalot = MangakakalotSource()
+except:
+    mangakakalot = None
+
 import json
 
 # Simplified Source Registry
@@ -75,8 +94,17 @@ SOURCES = {
     "cmanga": cmanga,
     "nettruyen": nettruyen,
     "truyenqq": truyenqq,
-    "blogtruyen": blogtruyen
+    "blogtruyen": blogtruyen,
 }
+
+# Add new sources if available
+if mangaplus:
+    SOURCES["mangaplus"] = mangaplus
+if manhwatop:
+    SOURCES["manhwatop"] = manhwatop
+if mangakakalot:
+    SOURCES["mangakakalot"] = mangakakalot
+
 
 ACTIVE_SOURCE_FILE = "active_source.json"
 

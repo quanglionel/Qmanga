@@ -245,16 +245,37 @@ def normalize_title(title: str) -> str:
 
 
 @app.get("/api/trending")
-async def get_trending(page: int = 1, sources: str = None):
+async def get_trending(page: int = 1, sources: str = None, lang: str = None):
     """Fetch trending from selected sources and merge results with smart deduplication"""
     try:
+        # Define sources language mapping (internal)
+        SOURCE_LANGS = {
+            "otruyen": "vi",
+            "cmanga": "vi",
+            "nettruyen": "vi",
+            "truyenqq": "vi",
+            "blogtruyen": "vi",
+            "manhwatop": "vi",
+            "mangadex": "multi",
+            "comick": "multi",
+            "mangaplus": "multi",
+            "mangakakalot": "en"
+        }
+
         # Parse source filter
         if sources:
             selected_sources = [s.strip() for s in sources.split(',') if s.strip() in SOURCES]
         else:
             selected_sources = list(SOURCES.keys())
         
-        print(f"[API] Đang lấy trending từ {len(selected_sources)} nguồn: {selected_sources}, trang: {page}")
+        # Apply language filtering if requested
+        if lang == 'vi':
+            # Strictly use only Vietnamese-first sources
+            selected_sources = [s for s in selected_sources if SOURCE_LANGS.get(s) == 'vi']
+            print(f"[API] Chỉ giữ lời nguồn tiếng Việt: {selected_sources}")
+        
+        print(f"[API] Đang lấy trending từ {len(selected_sources)} nguồn, trang: {page}")
+
         
         # Fetch from selected sources in parallel
         async def fetch_from_source(source_id, source):
@@ -282,6 +303,7 @@ async def get_trending(page: int = 1, sources: str = None):
         
         # Wait for all sources
         all_results = await asyncio.gather(*tasks)
+
         
         # Smart deduplication: keep manga with latest chapter / most recent update
         title_to_manga = {}  # normalized_title -> best manga item

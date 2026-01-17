@@ -250,7 +250,7 @@ async function fetchTrendingManga(page = 1) {
 
     try {
         // Build URL with source filter
-        let url = `/api/trending?page=${page}`;
+        let url = `/api/trending?page=${page}&lang=vi`;
 
         // Load saved sources if not already loaded
         if (selectedSources.length === 0) {

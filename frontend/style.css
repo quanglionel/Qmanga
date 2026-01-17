@@ -1450,6 +1450,7 @@ input:checked+.slider:before {
 .hamburger-menu {
     display: none;
 }
+
 /* Reader View Fixes */
 #reader-view {
     position: relative;
@@ -1489,7 +1490,7 @@ input:checked+.slider:before {
 .reader-nav {
     position: fixed;
     bottom: 0;
-    left: 0;
+    left: var(--sidebar-width);
     right: 0;
     display: flex;
     justify-content: center;
@@ -1504,4 +1505,11 @@ input:checked+.slider:before {
 /* Add padding to reader-pages so content doesn't hide behind nav */
 #reader-pages {
     padding-bottom: 70px !important;
+}
+
+/* Mobile: reader-nav full width */
+@media screen and (max-width: 768px) {
+    .reader-nav {
+        left: 0;
+    }
 }

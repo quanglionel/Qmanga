@@ -1484,3 +1484,24 @@ input:checked+.slider:before {
     width: 100%;
     display: block;
 }
+
+/* Reader Navigation - Fixed at Bottom */
+.reader-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--glass-border);
+    z-index: 200;
+    backdrop-filter: blur(10px);
+}
+
+/* Add padding to reader-pages so content doesn't hide behind nav */
+#reader-pages {
+    padding-bottom: 70px !important;
+}

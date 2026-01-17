@@ -21,17 +21,24 @@ toptruyen = GenericNettruyenSource("TopTruyen", "https://toptruyen.net")
 nettruyenco = GenericNettruyenSource("NetTruyenCO", "https://nettruyenco.vn")
 nettruyenx = GenericNettruyenSource("NetTruyenX", "https://nettruyenx.com")
 vlogtruyen = GenericNettruyenSource("VlogTruyen", "https://vlogtruyen2.net")
+doctruyen5s = GenericNettruyenSource("DocTruyen5S", "https://doctruyen5s.com")
+truyenvn = GenericNettruyenSource("TruyenVN", "https://truyenvnhot.com")
+umetruyen = GenericNettruyenSource("UmeTruyen", "https://umetruyen.com")
+foxtruyen = GenericNettruyenSource("FoxTruyen", "https://foxtruyen.com")
 
 # NSFW/Specific Sources
-# Tranh18, MeHentai, XXManhwa often share structures
-class MadaraSource(NetTruyenSource):
-    """Base for sources using Madara theme (WP) - slightly different but often works with BeautifulSoup"""
-    def __init__(self, name, base_url, is_nsfw=False):
-        super().__init__()
-        self.name = name
-        self.base_url = base_url
-        self.is_nsfw = is_nsfw
-        self.headers = {"User-Agent": "Mozilla/5.0"}
+cbhentai = GenericNettruyenSource("CBHentai", "https://cbhentai.com", icon="https://cbhentai.com/favicon.ico")
+cbhentai.is_nsfw = True
+
+mehentai = GenericNettruyenSource("MeHentai", "https://mehentai.net")
+mehentai.is_nsfw = True
+
+tranh18 = GenericNettruyenSource("Tranh18", "https://tranh18.com")
+tranh18.is_nsfw = True
+
+xxmanhwa = GenericNettruyenSource("XXManhwa", "https://xxmanhwa.com")
+xxmanhwa.is_nsfw = True
+
         
     # Madara often has different selectors, but for simple MVP let's keep it subclassed
     # and we can override specific methods if needed.

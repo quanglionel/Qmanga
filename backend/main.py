@@ -61,6 +61,22 @@ async def proxy_image(url: str):
         headers["Referer"] = "https://truyentranh3q.com/"
     elif "toptruyen" in url:
         headers["Referer"] = "https://toptruyen.net/"
+    elif "doctruyen5s" in url:
+        headers["Referer"] = "https://doctruyen5s.com/"
+    elif "truyenvnhot" in url:
+        headers["Referer"] = "https://truyenvnhot.com/"
+    elif "umetruyen" in url:
+        headers["Referer"] = "https://umetruyen.com/"
+    elif "foxtruyen" in url:
+        headers["Referer"] = "https://foxtruyen.com/"
+    elif "cbhentai" in url:
+        headers["Referer"] = "https://cbhentai.com/"
+    elif "mehentai" in url:
+        headers["Referer"] = "https://mehentai.net/"
+    elif "tranh18" in url:
+        headers["Referer"] = "https://tranh18.com/"
+    elif "xxmanhwa" in url:
+        headers["Referer"] = "https://xxmanhwa.com/"
 
     async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
         try:
@@ -111,16 +127,23 @@ for module_name, class_name in source_imports:
 try:
     from aggregated_sources import (
         doctruyen3q, truyentranh3q, toptruyen, 
-        nettruyenco, nettruyenx, vlogtruyen
+        nettruyenco, nettruyenx, vlogtruyen,
+        doctruyen5s, truyenvn, umetruyen, foxtruyen,
+        cbhentai, mehentai, tranh18, xxmanhwa
     )
-    NEW_SOURCES["doctruyen3q"] = doctruyen3q
-    NEW_SOURCES["truyentranh3q"] = truyentranh3q
-    NEW_SOURCES["toptruyen"] = toptruyen
-    NEW_SOURCES["nettruyenco"] = nettruyenco
-    NEW_SOURCES["nettruyenx"] = nettruyenx
-    NEW_SOURCES["vlogtruyen"] = vlogtruyen
+    agg_map = {
+        "doctruyen3q": doctruyen3q, "truyentranh3q": truyentranh3q, 
+        "toptruyen": toptruyen, "nettruyenco": nettruyenco, 
+        "nettruyenx": nettruyenx, "vlogtruyen": vlogtruyen,
+        "doctruyen5s": doctruyen5s, "truyenvn": truyenvn, 
+        "umetruyen": umetruyen, "foxtruyen": foxtruyen,
+        "cbhentai": cbhentai, "mehentai": mehentai, 
+        "tranh18": tranh18, "xxmanhwa": xxmanhwa
+    }
+    NEW_SOURCES.update(agg_map)
 except Exception as e:
     print(f"Failed to load aggregated sources: {e}")
+
 
 
 import json
@@ -302,6 +325,14 @@ async def get_trending(page: int = 1, sources: str = None, lang: str = None):
             "nettruyenco": "vi",
             "nettruyenx": "vi",
             "vlogtruyen": "vi",
+            "doctruyen5s": "vi",
+            "truyenvn": "vi",
+            "umetruyen": "vi",
+            "foxtruyen": "vi",
+            "cbhentai": "vi",
+            "mehentai": "vi",
+            "tranh18": "vi",
+            "xxmanhwa": "vi",
             "mangadex": "multi",
             "comick": "multi",
             "batoto": "multi",

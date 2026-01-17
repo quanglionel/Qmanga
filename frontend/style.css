@@ -1451,12 +1451,13 @@ input:checked+.slider:before {
     display: none;
 }
 
-/* Reader View Fixes */
+/* ============== READER VIEW ============== */
 #reader-view {
     position: relative;
     padding: 0 !important;
     margin: -20px;
     width: calc(100% + 40px);
+    min-height: 100vh;
 }
 
 .reader-toolbar {
@@ -1475,15 +1476,31 @@ input:checked+.slider:before {
     flex: 1;
     text-align: center;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
+.reader-toolbar .btn-icon {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 8px;
+}
+
+/* Reader Pages Container */
 #reader-pages {
     padding: 0;
+    padding-bottom: 80px;
 }
 
 #reader-pages img {
     width: 100%;
+    max-width: 100%;
     display: block;
+    margin: 0 auto;
 }
 
 /* Reader Navigation - Fixed at Bottom */
@@ -1494,6 +1511,7 @@ input:checked+.slider:before {
     right: 0;
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: 10px;
     padding: 12px 20px;
     background: var(--bg-secondary);
@@ -1502,14 +1520,48 @@ input:checked+.slider:before {
     backdrop-filter: blur(10px);
 }
 
-/* Add padding to reader-pages so content doesn't hide behind nav */
-#reader-pages {
-    padding-bottom: 70px !important;
+.btn-nav {
+    padding: 8px 16px;
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: var(--transition);
+    font-size: 0.9rem;
+}
+
+.btn-nav:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.btn-nav:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.chapter-select-btn {
+    min-width: 120px;
+    justify-content: center;
 }
 
 /* Mobile: reader-nav full width */
 @media screen and (max-width: 768px) {
     .reader-nav {
         left: 0;
+    }
+
+    #reader-view {
+        margin: -10px;
+        width: calc(100% + 20px);
+    }
+
+    .btn-nav {
+        padding: 6px 10px;
+        font-size: 0.8rem;
     }
 }

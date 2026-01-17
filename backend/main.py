@@ -49,6 +49,18 @@ async def proxy_image(url: str):
         headers["Referer"] = "https://sayhentai.net/"
     elif "nhentai" in url:
         headers["Referer"] = "https://nhentai.net/"
+    elif "hentaivn" in url:
+        headers["Referer"] = "https://hentaivn.ooo/"
+    elif "lxmanga" in url:
+        headers["Referer"] = "https://lxmanga.net/"
+    elif "cuutruyen" in url:
+        headers["Referer"] = "https://cuutruyen.net/"
+    elif "doctruyen3qi" in url:
+        headers["Referer"] = "https://doctruyen3qi.com/"
+    elif "truyentranh3q" in url:
+        headers["Referer"] = "https://truyentranh3q.com/"
+    elif "toptruyen" in url:
+        headers["Referer"] = "https://toptruyen.net/"
 
     async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
         try:
@@ -69,36 +81,47 @@ from nettruyen import nettruyen
 from truyenqq import truyenqq
 from blogtruyen import blogtruyen
 
-# New sources
-try:
-    from mangaplus import MangaPlusSource
-    mangaplus = MangaPlusSource()
-except: mangaplus = None
+# Individual new sources
+source_imports = [
+    ("mangaplus", "MangaPlusSource"),
+    ("manhwatop", "ManhwatopSource"),
+    ("mangakakalot", "MangakakalotSource"),
+    ("batoto", "BatotoSource"),
+    ("sayhentai", "SayHentaiSource"),
+    ("nhentai", "NHentaiSource"),
+    ("hentaivn", "HentaiVNSource"),
+    ("cuutruyen", "CuutruyenSource"),
+    ("lxmanga", "LXMangaSource"),
+    ("nhattruyen", "nhattruyen"),
+]
 
-try:
-    from manhwatop import ManhwatopSource
-    manhwatop = ManhwatopSource()
-except: manhwatop = None
+NEW_SOURCES = {}
 
-try:
-    from mangakakalot import MangakakalotSource
-    mangakakalot = MangakakalotSource()
-except: mangakakalot = None
+# Import from individual files
+for module_name, class_name in source_imports:
+    try:
+        module = __import__(module_name)
+        if hasattr(module, class_name):
+            obj = getattr(module, class_name)
+            NEW_SOURCES[module_name] = obj() if isinstance(obj, type) else obj
+    except Exception as e:
+        print(f"Failed to import {module_name}: {e}")
 
+# Import aggregated clones
 try:
-    from batoto import BatotoSource
-    batoto = BatotoSource()
-except: batoto = None
+    from aggregated_sources import (
+        doctruyen3q, truyentranh3q, toptruyen, 
+        nettruyenco, nettruyenx, vlogtruyen
+    )
+    NEW_SOURCES["doctruyen3q"] = doctruyen3q
+    NEW_SOURCES["truyentranh3q"] = truyentranh3q
+    NEW_SOURCES["toptruyen"] = toptruyen
+    NEW_SOURCES["nettruyenco"] = nettruyenco
+    NEW_SOURCES["nettruyenx"] = nettruyenx
+    NEW_SOURCES["vlogtruyen"] = vlogtruyen
+except Exception as e:
+    print(f"Failed to load aggregated sources: {e}")
 
-try:
-    from sayhentai import SayHentaiSource
-    sayhentai = SayHentaiSource()
-except: sayhentai = None
-
-try:
-    from nhentai import NHentaiSource
-    nhentai = NHentaiSource()
-except: nhentai = None
 
 import json
 
@@ -113,13 +136,8 @@ SOURCES = {
     "blogtruyen": blogtruyen,
 }
 
-# Add new sources if available
-if mangaplus: SOURCES["mangaplus"] = mangaplus
-if manhwatop: SOURCES["manhwatop"] = manhwatop
-if mangakakalot: SOURCES["mangakakalot"] = mangakakalot
-if batoto: SOURCES["batoto"] = batoto
-if sayhentai: SOURCES["sayhentai"] = sayhentai
-if nhentai: SOURCES["nhentai"] = nhentai
+# Add new sources
+SOURCES.update(NEW_SOURCES)
 
 
 
@@ -274,6 +292,16 @@ async def get_trending(page: int = 1, sources: str = None, lang: str = None):
             "blogtruyen": "vi",
             "manhwatop": "vi",
             "sayhentai": "vi",
+            "hentaivn": "vi",
+            "cuutruyen": "vi",
+            "lxmanga": "vi",
+            "nhattruyen": "vi",
+            "doctruyen3q": "vi",
+            "truyentranh3q": "vi",
+            "toptruyen": "vi",
+            "nettruyenco": "vi",
+            "nettruyenx": "vi",
+            "vlogtruyen": "vi",
             "mangadex": "multi",
             "comick": "multi",
             "batoto": "multi",

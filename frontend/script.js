@@ -395,8 +395,14 @@ function createMangaCard(manga) {
     const sourceBadge = manga.source_name ?
         `<div class="source-badge">${manga.source_name}</div>` : '';
 
+    const nsfwBadge = manga.is_nsfw ?
+        `<div class="nsfw-badge">NSFW</div>` : '';
+
     div.innerHTML = `
-        ${sourceBadge}
+        <div class="card-badges">
+            ${sourceBadge}
+            ${nsfwBadge}
+        </div>
         <img src="${getImgUrl(manga.cover)}" alt="${manga.title}" class="card-image" loading="lazy">
         <div class="card-info">
             <div class="card-title">${manga.title}</div>

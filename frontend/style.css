@@ -325,6 +325,40 @@ body {
     position: relative;
 }
 
+.card-badges {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 5;
+}
+
+.source-badge {
+    background: rgba(15, 23, 42, 0.85);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-transform: uppercase;
+}
+
+.nsfw-badge {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+
 .manga-card:hover {
     transform: translateY(-5px);
 }

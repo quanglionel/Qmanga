@@ -37,15 +37,19 @@ async def proxy_image(url: str):
         headers["Referer"] = "https://comick.io/"
     elif "nettruyen" in url or "nettruyenco" in url:
         headers["Referer"] = "https://nettruyenar.com/"
-
     elif "truyenqq" in url or "truyenqqq" in url or "truyenqqno" in url:
         headers["Referer"] = "https://truyenqqno.com/"
     elif "blogtruyen" in url:
         headers["Referer"] = "https://blogtruyen.vn/"
     elif "cmanga" in url:
         headers["Referer"] = "https://cmanga.com/"
+    elif "bato.to" in url or "batoto" in url:
+        headers["Referer"] = "https://bato.to/"
+    elif "sayhentai" in url:
+        headers["Referer"] = "https://sayhentai.net/"
+    elif "nhentai" in url:
+        headers["Referer"] = "https://nhentai.net/"
 
-    
     async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
         try:
             resp = await client.get(url, headers=headers)
@@ -69,20 +73,32 @@ from blogtruyen import blogtruyen
 try:
     from mangaplus import MangaPlusSource
     mangaplus = MangaPlusSource()
-except:
-    mangaplus = None
+except: mangaplus = None
 
 try:
     from manhwatop import ManhwatopSource
     manhwatop = ManhwatopSource()
-except:
-    manhwatop = None
+except: manhwatop = None
 
 try:
     from mangakakalot import MangakakalotSource
     mangakakalot = MangakakalotSource()
-except:
-    mangakakalot = None
+except: mangakakalot = None
+
+try:
+    from batoto import BatotoSource
+    batoto = BatotoSource()
+except: batoto = None
+
+try:
+    from sayhentai import SayHentaiSource
+    sayhentai = SayHentaiSource()
+except: sayhentai = None
+
+try:
+    from nhentai import NHentaiSource
+    nhentai = NHentaiSource()
+except: nhentai = None
 
 import json
 
@@ -98,12 +114,13 @@ SOURCES = {
 }
 
 # Add new sources if available
-if mangaplus:
-    SOURCES["mangaplus"] = mangaplus
-if manhwatop:
-    SOURCES["manhwatop"] = manhwatop
-if mangakakalot:
-    SOURCES["mangakakalot"] = mangakakalot
+if mangaplus: SOURCES["mangaplus"] = mangaplus
+if manhwatop: SOURCES["manhwatop"] = manhwatop
+if mangakakalot: SOURCES["mangakakalot"] = mangakakalot
+if batoto: SOURCES["batoto"] = batoto
+if sayhentai: SOURCES["sayhentai"] = sayhentai
+if nhentai: SOURCES["nhentai"] = nhentai
+
 
 
 ACTIVE_SOURCE_FILE = "active_source.json"
@@ -256,8 +273,11 @@ async def get_trending(page: int = 1, sources: str = None, lang: str = None):
             "truyenqq": "vi",
             "blogtruyen": "vi",
             "manhwatop": "vi",
+            "sayhentai": "vi",
             "mangadex": "multi",
             "comick": "multi",
+            "batoto": "multi",
+            "nhentai": "multi",
             "mangaplus": "multi",
             "mangakakalot": "en"
         }
@@ -286,10 +306,12 @@ async def get_trending(page: int = 1, sources: str = None, lang: str = None):
                     res = await source.fetch_trending_manga(page=page)
                 
                 items = res.get('active_manga', []) if isinstance(res, dict) else []
+                is_nsfw_source = getattr(source, 'is_nsfw', False)
                 # Add source info to each item
                 for item in items:
                     item['source'] = source_id
                     item['source_name'] = source.name if hasattr(source, 'name') else source_id
+                    item['is_nsfw'] = is_nsfw_source
                 return items
             except Exception as e:
                 print(f"[API] Lỗi từ {source_id}: {e}")

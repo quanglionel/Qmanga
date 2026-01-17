@@ -270,36 +270,66 @@ async def search_manga(q: str, source: str = None):
         else:
             sources_to_search = SOURCES
         
-        query_lower = q.lower()
+        # Normalize search query
+        query_normalized = normalize_title(q)
+        query_words = query_normalized.split()
+        
         results = []
         
         for src_id, src in sources_to_search.items():
             try:
-                # Get trending items to search through
-                if hasattr(src, 'fetch_trending'):
-                    data = await src.fetch_trending(page=1, limit=100)
-                else:
-                    data = await src.fetch_trending_manga(page=1)
+                # Get items to search through - try multiple pages for better coverage
+                all_items = []
+                for page in range(1, 4):  # Search first 3 pages
+                    try:
+                        if hasattr(src, 'fetch_trending'):
+                            data = await src.fetch_trending(page=page, limit=50)
+                        else:
+                            data = await src.fetch_trending_manga(page=page)
+                        
+                        items = data.get('active_manga', []) if isinstance(data, dict) else []
+                        all_items.extend(items)
+                    except:
+                        break
                 
-                items = data.get('active_manga', []) if isinstance(data, dict) else []
-                
-                for item in items:
-                    title = item.get('title', '').lower()
-                    if query_lower in title or title in query_lower:
+                for item in all_items:
+                    title = item.get('title', '')
+                    title_normalized = normalize_title(title)
+                    
+                    # Check if query matches title (fuzzy match)
+                    match_score = 0
+                    for word in query_words:
+                        if word in title_normalized:
+                            match_score += 1
+                    
+                    # At least half the words should match
+                    if match_score >= len(query_words) / 2:
                         item['source'] = src_id
+                        item['match_score'] = match_score
                         results.append(item)
                         
             except Exception as e:
                 print(f"Search error in {src_id}: {e}")
         
-        # Sort by title match score
-        results.sort(key=lambda x: len(x.get('title', '')))
+        # Sort by match score (higher is better)
+        results.sort(key=lambda x: x.get('match_score', 0), reverse=True)
         
-        return {"results": results[:20]}
+        # Remove duplicates by title
+        seen_titles = set()
+        unique_results = []
+        for r in results:
+            title_key = normalize_title(r.get('title', ''))
+            if title_key not in seen_titles:
+                seen_titles.add(title_key)
+                unique_results.append(r)
+        
+        return {"results": unique_results[:20]}
         
     except Exception as e:
         print(f"Search error: {e}")
         return {"results": []}
+
+
 
 
 @app.get("/api/manga/{manga_id}")

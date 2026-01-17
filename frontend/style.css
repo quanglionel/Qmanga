@@ -899,3 +899,249 @@ input:checked+.slider:before {
 .source-label strong { color: var(--accent); }
 .btn-switch-source { background: transparent; border: 1px solid var(--glass-border); color: var(--text-primary); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; transition: var(--transition); }
 .btn-switch-source:hover { background: var(--accent); border-color: var(--accent); }
+/* ==================== MOBILE RESPONSIVE ==================== */
+@media screen and (max-width: 768px) {
+    /* Hide sidebar on mobile */
+    .sidebar {
+        position: fixed;
+        left: -100%;
+        top: 0;
+        height: 100vh;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        width: 280px;
+    }
+    .sidebar.open {
+        left: 0;
+    }
+    
+    /* Overlay when sidebar open */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 999;
+        display: none;
+    }
+    .sidebar-overlay.active {
+        display: block;
+    }
+    
+    /* Main content full width */
+    .main-content {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    
+    /* Top bar adjustments */
+    .top-bar {
+        padding: 10px 15px;
+    }
+    
+    /* Add hamburger menu */
+    .hamburger-menu {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--glass-border);
+        border-radius: 10px;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+    
+    /* Search bar smaller */
+    .search-bar {
+        flex: 1;
+    }
+    .search-bar input {
+        padding: 10px 15px 10px 40px;
+        font-size: 14px;
+    }
+    
+    /* User profile compact */
+    .user-profile {
+        gap: 10px;
+    }
+    .avatar {
+        width: 35px;
+        height: 35px;
+    }
+    
+    /* Notification dropdown */
+    .notification-dropdown {
+        width: 300px;
+        right: -50px;
+    }
+    
+    /* Grid adjustments */
+    .manga-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 10px !important;
+        padding: 0 10px;
+    }
+    
+    /* Card adjustments */
+    .manga-card {
+        border-radius: 8px;
+    }
+    .card-info {
+        padding: 8px;
+    }
+    .card-title {
+        font-size: 0.75rem;
+        -webkit-line-clamp: 2;
+    }
+    .card-meta {
+        font-size: 0.7rem;
+    }
+    .source-badge {
+        font-size: 0.6rem;
+        padding: 2px 5px;
+    }
+    
+    /* Scroll rows */
+    .manga-scroll-row {
+        gap: 10px;
+        padding: 0 10px;
+    }
+    .manga-scroll-row .manga-card {
+        min-width: 120px;
+        max-width: 120px;
+    }
+    
+    /* Section headers */
+    .section-header {
+        padding: 0 15px;
+        margin-bottom: 10px;
+    }
+    .section-header h2 {
+        font-size: 1.1rem;
+    }
+    
+    /* Detail view */
+    .manga-detail-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 15px;
+    }
+    .detail-cover {
+        width: 150px;
+        height: auto;
+        margin-bottom: 15px;
+    }
+    .detail-info {
+        width: 100%;
+    }
+    .detail-info h1 {
+        font-size: 1.3rem;
+    }
+    .detail-meta {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .detail-source {
+        justify-content: center;
+    }
+    .action-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .action-buttons button {
+        width: 100%;
+    }
+    
+    /* Chapter list */
+    .chapter-list {
+        padding: 15px;
+    }
+    .chapter-item {
+        padding: 12px;
+    }
+    
+    /* Reader view */
+    .reader-toolbar {
+        padding: 10px 15px;
+    }
+    .reader-toolbar span {
+        font-size: 0.9rem;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .reader-nav {
+        padding: 8px;
+        gap: 5px;
+        top: 50px;
+    }
+    .btn-nav {
+        padding: 6px 10px;
+        font-size: 0.8rem;
+    }
+    .chapter-select-btn {
+        min-width: 100px;
+    }
+    
+    /* Reader pages full width */
+    #reader-pages img {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    /* Chapter modal */
+    .chapter-modal-content {
+        width: 95%;
+        max-height: 80vh;
+    }
+    
+    /* Extensions/Browse */
+    .extension-item {
+        padding: 12px;
+    }
+    .ext-icon {
+        width: 35px;
+        height: 35px;
+    }
+    
+    /* Settings */
+    .settings-container {
+        padding: 15px;
+    }
+    .setting-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    /* Library/History grids */
+    #library-grid, #history-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 10px !important;
+    }
+}
+
+/* Extra small devices */
+@media screen and (max-width: 480px) {
+    .manga-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    #library-grid, #history-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .notification-dropdown {
+        width: 280px;
+        right: -80px;
+    }
+}
+
+/* Hidden by default on desktop */
+.hamburger-menu {
+    display: none;
+}

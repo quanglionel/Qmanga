@@ -5,6 +5,22 @@ document.addEventListener('DOMContentLoaded', () => {
     setupNotifications();
 });
 
+// Mobile Sidebar Toggle
+function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('active');
+}
+
+function closeSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    sidebar.classList.remove('open');
+    overlay.classList.remove('active');
+}
+
+
 // Navigation State
 const views = {
     'home': document.getElementById('home-view'),
@@ -17,6 +33,9 @@ const views = {
 };
 
 function navigateTo(viewName) {
+    // Close mobile sidebar
+    closeSidebar();
+
     // Hide all views
     Object.values(views).forEach(el => el && el.classList.add('hidden'));
 
@@ -24,6 +43,7 @@ function navigateTo(viewName) {
     if (views[viewName]) {
         views[viewName].classList.remove('hidden');
     }
+
 
     // Refresh data if needed
     if (viewName === 'home') {

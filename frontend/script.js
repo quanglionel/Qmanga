@@ -406,6 +406,12 @@ async function showSourceSwitcher() {
     const existing = document.getElementById('source-switcher-modal');
     if (existing) existing.remove();
 
+    const mangaTitle = window.currentMangaTitle;
+    if (!mangaTitle) {
+        alert('Không tìm thấy thông tin truyện');
+        return;
+    }
+
     // Fetch available sources
     let sources = [];
     try {
@@ -422,7 +428,7 @@ async function showSourceSwitcher() {
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 
     const sourcesHtml = sources.map(src => `
-        <div class="chapter-modal-item" onclick="switchToSource('${src.id}', '${window.currentMangaTitle?.replace(/'/g, "\\'")}')">
+        <div class="chapter-modal-item" data-source-id="${src.id}">
             <i class="fa-solid fa-globe"></i> ${src.name}
         </div>
     `).join('');
@@ -434,19 +440,33 @@ async function showSourceSwitcher() {
                 <button onclick="this.closest('.chapter-modal').remove()"><i class="fa-solid fa-times"></i></button>
             </div>
             <p style="padding: 10px 16px; color: var(--text-secondary); font-size: 0.9rem;">
-                Tìm "${window.currentMangaTitle}" trong nguồn khác:
+                Tìm "${mangaTitle}" trong nguồn khác:
             </p>
-            <div class="chapter-modal-list">
+            <div class="chapter-modal-list" id="source-list">
                 ${sourcesHtml}
             </div>
         </div>
     `;
 
     document.body.appendChild(modal);
+
+    // Add click handlers after modal is in DOM
+    document.querySelectorAll('#source-list .chapter-modal-item').forEach(item => {
+        item.onclick = () => {
+            const sourceId = item.dataset.sourceId;
+            switchToSource(sourceId);
+        };
+    });
 }
 
-async function switchToSource(sourceId, mangaTitle) {
+async function switchToSource(sourceId) {
     document.getElementById('source-switcher-modal')?.remove();
+
+    const mangaTitle = window.currentMangaTitle;
+    if (!mangaTitle) {
+        alert('Không tìm thấy thông tin truyện');
+        return;
+    }
 
     // Show loading
     const chapterListUI = document.getElementById('chapter-list-ui');
@@ -475,6 +495,7 @@ async function switchToSource(sourceId, mangaTitle) {
         alert('Lỗi khi chuyển nguồn. Thử lại sau.');
     }
 }
+
 
 // --- Reader ---
 

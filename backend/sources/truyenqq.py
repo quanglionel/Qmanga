@@ -80,87 +80,72 @@ class TruyenQQSource(BaseSource):
             results = []
             seen_ids = set()
             current_api_page = (page - 1) * 3 + 1
+            max_scan_pages = current_api_page + 4
             
-            while len(results) < limit and current_api_page < 30:
+            while len(results) < limit and current_api_page <= max_scan_pages:
                 url = f"{self.base_url}/truyen-moi-cap-nhat/trang-{current_api_page}.html"
                 if current_api_page == 1:
                     url = f"{self.base_url}/truyen-moi-cap-nhat.html"
                 
-                html = await self._fetch_html(url)
-                if not html:
-                    break
-                    
-                soup = BeautifulSoup(html, 'html.parser')
-                items = soup.select('.list_grid li')
-                if not items:
-                    break
-                    
-                for item in items:
-                    title_el = item.select_one('.book_name a')
-                    if not title_el: continue
-                    
-                    title = title_el.text.strip()
-                    href = title_el['href']
-                    if href.startswith('/'):
-                        raw_id = href.strip('/')
-                    else:
-                        raw_id = href.replace(self.base_url, '').strip('/')
-                    
-                    manga_id = raw_id.replace('truyen-tranh/', '')
-                    
-                    # LOẠI TRÙNG NỘI BỘ
-                    if manga_id in seen_ids:
-                        continue
-                    seen_ids.add(manga_id)
-                    
-                    imgs = item.select('img')
-                    cover_url = ""
-                    for img in imgs:
-                        src = img.get('src') or img.get('data-src')
-                        if not src: continue
-                         
-                        # Skip decoration/holiday images
-                        classes = img.get('class', [])
-                        if not isinstance(classes, list): classes = [str(classes)]
+                try:
+                    html = await self._fetch_html(url)
+                    if not html:
+                        break
                         
-                        # Check classes
-                        if 'holiday-ui-wrapper' in classes or any('holiday' in c for c in classes):
-                            continue
-                            
-                        # Check src content
-                        src_lower = src.lower()
-                        if 'cloud' in src_lower or 'tet' in src_lower or 'icon' in src_lower:
-                            continue
-                            
-                        # Check alt text
-                        alt = img.get('alt', '').lower()
-                        if 'cloud' in alt:
-                            continue
-
-                        # Skip SVGs (decorations)
-                        if '.svg' in src_lower:
-                            continue
-                            
-                        cover_url = src
-                        if cover_url.startswith('//'):
-                            cover_url = 'https:' + cover_url
-                        elif not cover_url.startswith('http'):
-                            cover_url = self.base_url.rstrip('/') + '/' + cover_url.lstrip('/')
+                    soup = BeautifulSoup(html, 'html.parser')
+                    items = soup.select('.list_grid li')
+                    if not items:
                         break
-                    
-                    latest_chap = item.select_one('.last_chapter a')
-                    chap_text = latest_chap.text.strip() if latest_chap else "N/A"
-                    
-                    results.append({
-                        "id": manga_id,
-                        "title": title,
-                        "cover": cover_url,
-                        "latest_chapter": chap_text,
-                        "updated_at": "" 
-                    })
-                    
-                    if len(results) >= limit:
-                        break
+                        
+                    for item in items:
+                        title_el = item.select_one('.book_name a')
+                        if not title_el: continue
+                        
+                        title = title_el.text.strip()
+                        href = title_el['href']
+                        if href.startswith('/'):
+                            raw_id = href.strip('/')
+                        else:
+                            raw_id = href.replace(self.base_url, '').strip('/')
+                        
+                        manga_id = raw_id.replace('truyen-tranh/', '')
+                        
+                        if manga_id in seen_ids:
+                            continue
+                        seen_ids.add(manga_id)
+                        
+                        imgs = item.select('img')
+                        cover_url = ""
+                        for img in imgs:
+                            src = img.get('src') or img.get('data-src')
+                            if not src: continue
+                             
+                            # Skip decorations
+                            if '.svg' in src.lower() or 'icon' in src.lower():
+                                continue
+                                
+                            cover_url = src
+                            if cover_url.startswith('//'):
+                                cover_url = 'https:' + cover_url
+                            elif not cover_url.startswith('http'):
+                                cover_url = self.base_url.rstrip('/') + '/' + cover_url.lstrip('/')
+                            break
+                        
+                        latest_chap = item.select_one('.last_chapter a')
+                        chap_text = latest_chap.text.strip() if latest_chap else "N/A"
+                        
+                        results.append({
+                            "id": manga_id,
+                            "title": title,
+                            "cover": cover_url,
+                            "latest_chapter": chap_text,
+                            "updated_at": "" 
+                        })
+                        
+                        if len(results) >= limit:
+                            break
+                except:
+                    break
                 
                 current_api_page += 1
             

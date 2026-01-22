@@ -10,6 +10,12 @@ try:
 except ImportError:
     HAS_CURL_CFFI = False
 
+try:
+    import cloudscraper
+    HAS_CLOUDSCRAPER = True
+except ImportError:
+    HAS_CLOUDSCRAPER = False
+
 
 class TruyenQQSource(BaseSource):
     """Manga source implementation for TruyenQQ scraping"""
@@ -31,26 +37,45 @@ class TruyenQQSource(BaseSource):
         self.cookies = {}
         self.load_cookies()
 
-    async def _fetch_html(self, url: str) -> Optional[str]:
-        """Fetch HTML with Cloudflare bypass using curl_cffi, fallback to httpx"""
+    async def _fetch_html(self, url: str, custom_headers: dict = None) -> Optional[str]:
+        """Fetch HTML with triple fallback: curl_cffi -> cloudscraper -> httpx"""
+        headers = custom_headers if custom_headers else self.headers
+        
+        # 1. Try curl_cffi
         if HAS_CURL_CFFI:
             try:
                 async with AsyncSession(impersonate="chrome120", verify=False) as client:
-                    resp = await client.get(url, headers=self.headers, cookies=self.cookies, timeout=25)
+                    resp = await client.get(url, headers=headers, cookies=self.cookies, timeout=25)
                     if resp.status_code == 200:
                         return resp.text
-                    print(f"[TruyenQQ] CF Bypass status: {resp.status_code}")
+                    print(f"[TruyenQQ] curl_cffi status: {resp.status_code} for {url}")
             except Exception as e:
-                print(f"[TruyenQQ] curl_cffi error: {e}")
+                print(f"[TruyenQQ] curl_cffi error: {str(e)[:100]}")
         
-        # Fallback to httpx
+        # 2. Try cloudscraper
+        if HAS_CLOUDSCRAPER:
+            try:
+                import asyncio
+                def sync_fetch():
+                    scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
+                    return scraper.get(url, headers=headers, timeout=20)
+                
+                loop = asyncio.get_event_loop()
+                resp = await loop.run_in_executor(None, sync_fetch)
+                if resp.status_code == 200:
+                    return resp.text
+                print(f"[TruyenQQ] cloudscraper status: {resp.status_code} for {url}")
+            except Exception as e:
+                print(f"[TruyenQQ] cloudscraper error: {str(e)[:100]}")
+
+        # 3. Last resort: httpx
         try:
-            async with httpx.AsyncClient(headers=self.headers, cookies=self.cookies, timeout=30.0, follow_redirects=True) as client:
+            async with httpx.AsyncClient(headers=headers, cookies=self.cookies, timeout=20.0, follow_redirects=True, verify=False) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     return resp.text
-        except Exception as e:
-            print(f"[TruyenQQ] httpx error: {e}")
+                print(f"[TruyenQQ] httpx final status: {resp.status_code} for {url}")
+        except: pass
         
         return None
 
@@ -82,20 +107,57 @@ class TruyenQQSource(BaseSource):
             current_api_page = (page - 1) * 3 + 1
             max_scan_pages = current_api_page + 4
             
-            while len(results) < limit and current_api_page <= max_scan_pages:
-                url = f"{self.base_url}/truyen-moi-cap-nhat/trang-{current_api_page}.html"
-                if current_api_page == 1:
-                    url = f"{self.base_url}/truyen-moi-cap-nhat.html"
+            # Domain rotation for TruyenQQ
+            all_possible_domains = [
+                "https://truyenqqno.com",
+                "https://truyenqqq.com",
+                "https://truyenqqvn.com",
+                "https://truyenqqvip.com",
+                "https://truyenvua.com"
+            ]
+            
+            valid_html = None
+            working_domain = self.base_url
+            
+            for dom in all_possible_domains:
+                dom = dom.rstrip('/')
+                test_url = f"{dom}/truyen-moi-cap-nhat.html"
                 
-                try:
-                    html = await self._fetch_html(url)
-                    if not html:
+                test_headers = self.headers.copy()
+                test_headers["Referer"] = f"{dom}/"
+                
+                html = await self._fetch_html(test_url, custom_headers=test_headers)
+                if html and ("TruyenQQ" in html or "book_name" in html):
+                    valid_html = html
+                    working_domain = dom
+                    self.base_url = dom
+                    print(f"[TruyenQQ] KẾT NỐI THÀNH CÔNG: {dom}")
+                    break
+                else:
+                    print(f"[TruyenQQ] Tên miền {dom} bị chặn hoặc không có dữ liệu.")
+
+            if not valid_html:
+                return {"active_manga": [], "new_manga": []}
+
+            # Start processing from first valid page already fetched
+            current_html = valid_html
+            
+            while len(results) < limit and current_api_page <= max_scan_pages:
+                if not current_html:
+                    url = f"{working_domain}/truyen-moi-cap-nhat/trang-{current_api_page}.html"
+                    if current_api_page == 1:
+                        url = f"{working_domain}/truyen-moi-cap-nhat.html"
+                    
+                    test_headers = self.headers.copy()
+                    test_headers["Referer"] = f"{working_domain}/"
+                    current_html = await self._fetch_html(url, custom_headers=test_headers)
+                    if not current_html:
                         break
-                        
-                    soup = BeautifulSoup(html, 'html.parser')
-                    items = soup.select('.list_grid li')
-                    if not items:
-                        break
+                
+                soup = BeautifulSoup(current_html, 'html.parser')
+                items = soup.select('.list_grid li')
+                if not items:
+                    break
                         
                     for item in items:
                         title_el = item.select_one('.book_name a')

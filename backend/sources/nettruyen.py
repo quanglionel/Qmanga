@@ -51,13 +51,15 @@ class NetTruyenSource(BaseSource):
     
     item_selector = ".items .item"
     
-    async def _fetch_html(self, url: str) -> Optional[str]:
+    async def _fetch_html(self, url: str, custom_headers: dict = None) -> Optional[str]:
         """Fetch HTML with triple fallback: curl_cffi -> cloudscraper -> httpx"""
+        headers = custom_headers if custom_headers else self.headers
+        
         # 1. Try curl_cffi (Chrome impersonation)
         if HAS_CURL_CFFI:
             try:
                 async with AsyncSession(impersonate="chrome120", verify=False) as client:
-                    resp = await client.get(url, headers=self.headers, timeout=20)
+                    resp = await client.get(url, headers=headers, timeout=20)
                     if resp.status_code == 200:
                         return resp.text
                     print(f"[NetTruyen] curl_cffi status: {resp.status_code} for {url}")
@@ -70,7 +72,7 @@ class NetTruyenSource(BaseSource):
                 import asyncio
                 def sync_fetch():
                     scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
-                    return scraper.get(url, headers=self.headers, timeout=20)
+                    return scraper.get(url, headers=headers, timeout=20)
                 
                 loop = asyncio.get_event_loop()
                 resp = await loop.run_in_executor(None, sync_fetch)
@@ -82,7 +84,7 @@ class NetTruyenSource(BaseSource):
 
         # 3. Last resort: httpx
         try:
-            async with httpx.AsyncClient(headers=self.headers, timeout=15.0, follow_redirects=True, verify=False) as client:
+            async with httpx.AsyncClient(headers=headers, timeout=15.0, follow_redirects=True, verify=False) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     return resp.text
@@ -117,11 +119,17 @@ class NetTruyenSource(BaseSource):
             for dom in all_possible_domains:
                 dom = dom.rstrip('/')
                 test_url = dom if current_api_page == 1 else f"{dom}/trang-{current_api_page}"
-                html = await self._fetch_html(test_url)
-                if html and "NetTruyen" in html: # Xác nhận là có nội dung thật
+                
+                # CRITICAL: Match Referer to current domain
+                test_headers = self.headers.copy()
+                test_headers["Referer"] = f"{dom}/"
+                
+                html = await self._fetch_html(test_url, custom_headers=test_headers)
+                if html and ("NetTruyen" in html or "items" in html):
                     valid_html = html
                     working_domain = dom
-                    print(f"[NetTruyen] Cứu vãn thành công! Đang dùng: {dom}")
+                    self.base_url = dom 
+                    print(f"[NetTruyen] KẾT NỐI THÀNH CÔNG: {dom}")
                     break
                 else:
                     print(f"[NetTruyen] Tên miền {dom} bị chặn (403) hoặc không có dữ liệu.")

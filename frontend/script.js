@@ -140,7 +140,7 @@ function timeSince(dateString) {
 
 // --- Source Filter ---
 let availableSources = [];
-let selectedSources = [];
+let selectedSources = null;
 
 function loadSelectedSources() {
     const saved = localStorage.getItem('selectedSources');
@@ -148,7 +148,7 @@ function loadSelectedSources() {
         try {
             selectedSources = JSON.parse(saved);
         } catch (e) {
-            selectedSources = [];
+            selectedSources = null;
         }
     }
 }
@@ -164,7 +164,7 @@ async function initSourceFilter() {
 
         // Load saved selection or select all by default
         loadSelectedSources();
-        if (selectedSources.length === 0) {
+        if (selectedSources === null) {
             selectedSources = availableSources.map(s => s.id);
         }
 
@@ -178,13 +178,15 @@ function renderSourceFilter() {
     const container = document.getElementById('filter-sources-list');
     if (!container) return;
 
-    container.innerHTML = availableSources.map(src => `
-        <div class="filter-source-item ${selectedSources.includes(src.id) ? 'selected' : ''}" 
+    container.innerHTML = availableSources.map(src => {
+        const isSelected = selectedSources === null || selectedSources.includes(src.id);
+        return `
+        <div class="filter-source-item ${isSelected ? 'selected' : ''}" 
              data-source-id="${src.id}" onclick="toggleSourceSelection('${src.id}')">
-            <span class="check-icon">${selectedSources.includes(src.id) ? '<i class="fa-solid fa-check"></i>' : ''}</span>
+            <span class="check-icon">${isSelected ? '<i class="fa-solid fa-check"></i>' : ''}</span>
             <span class="source-name">${src.name}</span>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function toggleSourceFilter() {
@@ -204,6 +206,9 @@ function toggleSourceFilter() {
 }
 
 function toggleSourceSelection(sourceId) {
+    if (selectedSources === null) {
+        selectedSources = availableSources.map(s => s.id);
+    }
     const idx = selectedSources.indexOf(sourceId);
     if (idx > -1) {
         selectedSources.splice(idx, 1);
@@ -214,7 +219,7 @@ function toggleSourceSelection(sourceId) {
 }
 
 function selectAllSources() {
-    selectedSources = availableSources.map(s => s.id);
+    selectedSources = null; // Null means All
     renderSourceFilter();
 }
 
@@ -253,12 +258,12 @@ async function fetchTrendingManga(page = 1) {
         let url = `/api/trending?page=${page}&lang=vi`;
 
         // Load saved sources if not already loaded
-        if (selectedSources.length === 0) {
+        if (selectedSources === null) {
             loadSelectedSources();
         }
 
-        // Add sources filter if not all sources selected
-        if (selectedSources.length > 0) {
+        // Add sources filter if explicitly set (even if empty)
+        if (selectedSources !== null) {
             url += `&sources=${selectedSources.join(',')}`;
         }
 
@@ -641,7 +646,8 @@ async function openReader(chapter, index = null) {
     navigateTo('reader');
 
     try {
-        const response = await fetch(`/api/chapter/${chapter.id}`);
+        const sourceParam = window.currentMangaSource ? `?source=${window.currentMangaSource}` : '';
+        const response = await fetch(`/api/chapter/${chapter.id}${sourceParam}`);
         if (!response.ok) throw new Error('Failed to load chapter');
         const data = await response.json();
 

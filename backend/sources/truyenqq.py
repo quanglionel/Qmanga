@@ -5,7 +5,7 @@ TruyenQQ Source - Implementation of BaseSource (Scraping)
 import httpx
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
-from base_source import BaseSource
+from .base import BaseSource
 
 
 class TruyenQQSource(BaseSource):
@@ -23,6 +23,23 @@ class TruyenQQSource(BaseSource):
         "Referer": "https://truyenqqno.com/"
     }
 
+    def __init__(self):
+        super().__init__()
+        self.cookies = {}
+        self.load_cookies()
+
+    def load_cookies(self):
+        try:
+            import json
+            import os
+            cookie_file = "truyenqq_cookies.json"
+            if os.path.exists(cookie_file):
+                with open(cookie_file, 'r') as f:
+                    self.cookies = json.load(f)
+                print(f"[TruyenQQ] Loaded cookies from {cookie_file}")
+        except Exception as e:
+            print(f"[TruyenQQ] Failed to load cookies: {e}")
+
     
     async def fetch_trending(self, page: int = 1, limit: int = 100) -> List[Dict]:
         """Fetch popular manga from TruyenQQ with 100 items limit"""
@@ -32,7 +49,7 @@ class TruyenQQSource(BaseSource):
         if cached:
             return cached
             
-        async with httpx.AsyncClient(headers=self.headers, timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(headers=self.headers, cookies=self.cookies, timeout=30.0, follow_redirects=True) as client:
             try:
                 results = []
                 current_api_page = (page - 1) * 3 + 1
@@ -58,18 +75,47 @@ class TruyenQQSource(BaseSource):
                         title = title_el.text.strip()
                         href = title_el['href']
                         if href.startswith('/'):
-                            manga_id = href.strip('/')
+                            raw_id = href.strip('/')
                         else:
-                            manga_id = href.replace(self.base_url, '').strip('/')
+                            raw_id = href.replace(self.base_url, '').strip('/')
                         
-                        img_el = item.select_one('img')
+                        # Remove 'truyen-tranh/' prefix if present to normalize IDs
+                        manga_id = raw_id.replace('truyen-tranh/', '')
+                        
+                        imgs = item.select('img')
                         cover_url = ""
-                        if img_el:
-                            cover_url = img_el.get('src') or img_el.get('data-src')
-                            if cover_url and cover_url.startswith('//'):
+                        for img in imgs:
+                            src = img.get('src') or img.get('data-src')
+                            if not src: continue
+                             
+                            # Skip decoration/holiday images
+                            classes = img.get('class', [])
+                            if not isinstance(classes, list): classes = [str(classes)]
+                            
+                            # Check classes
+                            if 'holiday-ui-wrapper' in classes or any('holiday' in c for c in classes):
+                                continue
+                                
+                            # Check src content
+                            src_lower = src.lower()
+                            if 'cloud' in src_lower or 'tet' in src_lower or 'icon' in src_lower:
+                                continue
+                                
+                            # Check alt text
+                            alt = img.get('alt', '').lower()
+                            if 'cloud' in alt:
+                                continue
+
+                            # Skip SVGs (decorations)
+                            if '.svg' in src_lower:
+                                continue
+                                
+                            cover_url = src
+                            if cover_url.startswith('//'):
                                 cover_url = 'https:' + cover_url
-                            elif cover_url and not cover_url.startswith('http'):
+                            elif not cover_url.startswith('http'):
                                 cover_url = self.base_url.rstrip('/') + '/' + cover_url.lstrip('/')
+                            break
                         
                         latest_chap = item.select_one('.last_chapter a')
                         chap_text = latest_chap.text.strip() if latest_chap else "N/A"
@@ -102,9 +148,11 @@ class TruyenQQSource(BaseSource):
     
     async def fetch_manga_details(self, manga_id: str) -> Optional[Dict]:
         """Fetch detailed info from TruyenQQ"""
-        async with httpx.AsyncClient(headers=self.headers, timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(headers=self.headers, cookies=self.cookies, timeout=30.0, follow_redirects=True) as client:
             try:
-                url = f"{self.base_url}/{manga_id}"
+                # Re-add 'truyen-tranh/' if missing, TruyenQQ needs it for the URL
+                request_id = manga_id if manga_id.startswith('truyen-tranh/') else f"truyen-tranh/{manga_id}"
+                url = f"{self.base_url}/{request_id}"
                 resp = await client.get(url)
                 if resp.status_code != 200: return None
                 
@@ -136,9 +184,11 @@ class TruyenQQSource(BaseSource):
                     
                     href = link['href']
                     if href.startswith('/'):
-                        chap_id = href.strip('/')
+                        raw_chap_id = href.strip('/')
                     else:
-                        chap_id = href.replace(self.base_url, '').strip('/')
+                        raw_chap_id = href.replace(self.base_url, '').strip('/')
+                    
+                    chap_id = raw_chap_id.replace('truyen-tranh/', '')
                         
                     chap_title = link.text.strip()
                     date_el = item.select_one('.time-chap')
@@ -165,9 +215,11 @@ class TruyenQQSource(BaseSource):
     
     async def fetch_chapter_pages(self, chapter_id: str) -> Dict:
         """Fetch pages for a chapter from TruyenQQ"""
-        async with httpx.AsyncClient(headers=self.headers, timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(headers=self.headers, cookies=self.cookies, timeout=30.0, follow_redirects=True) as client:
             try:
-                url = f"{self.base_url}/{chapter_id}"
+                # Re-add 'truyen-tranh/' if missing
+                request_id = chapter_id if chapter_id.startswith('truyen-tranh/') else f"truyen-tranh/{chapter_id}"
+                url = f"{self.base_url}/{request_id}"
                 resp = await client.get(url)
                 if resp.status_code != 200: return {"id": chapter_id, "pages": []}
                 

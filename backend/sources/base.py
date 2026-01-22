@@ -34,9 +34,18 @@ class BaseSource(ABC):
     
     def load_cache(self):
         """Load cache from file"""
-        if os.path.exists(self.cache_file):
+        # Ensure cache path is in data/ folder relative to backend root
+        # We assume this code runs from backend root or nearby
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        data_dir = os.path.join(base_dir, "data")
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir, exist_ok=True)
+            
+        self.full_cache_path = os.path.join(data_dir, self.cache_file)
+        
+        if os.path.exists(self.full_cache_path):
             try:
-                with open(self.cache_file, 'r', encoding='utf-8') as f:
+                with open(self.full_cache_path, 'r', encoding='utf-8') as f:
                     self._cache = json.load(f)
             except:
                 self._cache = {}
@@ -44,7 +53,13 @@ class BaseSource(ABC):
     def save_cache(self):
         """Save cache to file"""
         try:
-            with open(self.cache_file, 'w', encoding='utf-8') as f:
+            # Re-ensure path exists
+            if not hasattr(self, 'full_cache_path'):
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                data_dir = os.path.join(base_dir, "data")
+                self.full_cache_path = os.path.join(data_dir, self.cache_file)
+
+            with open(self.full_cache_path, 'w', encoding='utf-8') as f:
                 json.dump(self._cache, f, ensure_ascii=False)
         except Exception as e:
             print(f"Failed to save cache: {e}")

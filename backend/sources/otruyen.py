@@ -5,7 +5,7 @@ Otruyen Source - Implementation of BaseSource for otruyenapi.com
 import httpx
 import asyncio
 from typing import List, Dict, Optional
-from base_source import BaseSource
+from .base import BaseSource
 
 
 class OtruyenSource(BaseSource):
@@ -60,6 +60,11 @@ class OtruyenSource(BaseSource):
                         if is_bw or is_adult:
                             continue
                             
+                        # SKIP: Manga with no chapters yet
+                        chapters = item.get('chaptersLatest')
+                        if not chapters:
+                            continue
+                            
                         slug = item.get('slug')
                         cover_path = item.get('thumb_url', '')
                         if 'uploads/comics' not in cover_path:
@@ -68,7 +73,6 @@ class OtruyenSource(BaseSource):
                             cover_url = f"{self.img_base.replace('/uploads/comics','')}/{cover_path}"
                             
                         # Use last item in chapters for latest chapter display (fast approximation)
-                        chapters = item.get('chaptersLatest', [])
                         latest_chap = f"Ch. {chapters[0].get('chapter_name', '?')}" if chapters else "N/A"
 
                         results.append({
@@ -160,9 +164,17 @@ class OtruyenSource(BaseSource):
     
     async def fetch_chapter_pages(self, chapter_id: str) -> Dict:
         """Fetch pages for a specific chapter"""
+        # Fix collapsed slashes if they occur during routing (e.g. https:/ -> https://)
+        if chapter_id.startswith('http:/') and not chapter_id.startswith('http://'):
+            chapter_id = chapter_id.replace('http:/', 'http://', 1)
+        elif chapter_id.startswith('https:/') and not chapter_id.startswith('https://'):
+            chapter_id = chapter_id.replace('https:/', 'https://', 1)
+            
         async with httpx.AsyncClient() as client:
             try:
+                print(f"[Otruyen] Fetching Chapter API: {chapter_id}")
                 resp = await client.get(chapter_id)  # chapter_id is the full API URL
+                print(f"[Otruyen] Chapter API Status: {resp.status_code}")
                 data = resp.json()
                 
                 item = data.get('data', {}).get('item', {})
@@ -171,9 +183,12 @@ class OtruyenSource(BaseSource):
                 images = item.get('chapter_image', [])
                 
                 pages = []
+                # Ensure domain_cdn doesn't have trailing slash and path has leading segment
+                cdn = domain_cdn.rstrip('/')
                 for img_file in images:
                     file_name = img_file.get('image_file')
-                    full_url = f"{domain_cdn}/{chapter_path}/{file_name}"
+                    path = chapter_path.strip('/')
+                    full_url = f"{cdn}/{path}/{file_name}"
                     pages.append(full_url)
                 
                 return {

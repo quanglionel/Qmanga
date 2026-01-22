@@ -4,7 +4,7 @@ MangaDex Source - Implementation of BaseSource for api.mangadex.org
 
 import httpx
 from typing import List, Dict, Optional
-from base_source import BaseSource
+from .base import BaseSource
 
 
 class MangaDexSource(BaseSource):
@@ -120,13 +120,17 @@ class MangaDexSource(BaseSource):
                 
                 chapters = []
                 for chap in feed_data.get('data', []):
-                    lang = chap['attributes']['translatedLanguage']
+                    attr = chap['attributes']
+                    if attr.get('externalUrl') or attr.get('pages', 0) == 0:
+                        continue
+
+                    lang = attr['translatedLanguage']
                     title_prefix = f"[{lang.upper()}] " if lang != 'vi' else ""
                     
                     chapters.append({
                         "id": chap['id'],
-                        "title": f"{title_prefix}Ch. {chap['attributes'].get('chapter', '?')} - {chap['attributes'].get('title', '') or ''}",
-                        "date": chap['attributes']['publishAt'][:10]
+                        "title": f"{title_prefix}Ch. {attr.get('chapter', '?')} - {attr.get('title', '') or ''}",
+                        "date": attr['publishAt'][:10]
                     })
                 
                 return {

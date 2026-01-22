@@ -6,7 +6,7 @@ from typing import List, Union
 import uvicorn
 import os
 import httpx 
-import otruyen 
+
 import asyncio
 from datetime import datetime
 
@@ -33,55 +33,24 @@ async def proxy_image(url: str):
     # Add referer based on domain
     if "mangadex" in url:
         headers["Referer"] = "https://mangadex.org/"
-    elif "comick" in url:
-        headers["Referer"] = "https://comick.io/"
     elif "nettruyen" in url or "nettruyenco" in url:
-        headers["Referer"] = "https://nettruyenar.com/"
-    elif "truyenqq" in url or "truyenqqq" in url or "truyenqqno" in url:
+        headers["Referer"] = "https://nettruyenww.com/"
+    elif "truyenqq" in url or "truyenqqq" in url or "truyenqqno" in url or "truyenvua" in url or "hinhhinh" in url or "tintruyen" in url:
         headers["Referer"] = "https://truyenqqno.com/"
-    elif "blogtruyen" in url:
-        headers["Referer"] = "https://blogtruyen.vn/"
-    elif "cmanga" in url:
-        headers["Referer"] = "https://cmanga.com/"
-    elif "bato.to" in url or "batoto" in url:
-        headers["Referer"] = "https://bato.to/"
-    elif "sayhentai" in url:
-        headers["Referer"] = "https://sayhentai.net/"
-    elif "nhentai" in url:
-        headers["Referer"] = "https://nhentai.net/"
-    elif "hentaivn" in url:
-        headers["Referer"] = "https://hentaivn.ooo/"
-    elif "lxmanga" in url:
-        headers["Referer"] = "https://lxmanga.net/"
-    elif "cuutruyen" in url:
-        headers["Referer"] = "https://cuutruyen.net/"
     elif "doctruyen3qi" in url:
         headers["Referer"] = "https://doctruyen3qi.com/"
     elif "truyentranh3q" in url:
         headers["Referer"] = "https://truyentranh3q.com/"
-    elif "toptruyen" in url:
-        headers["Referer"] = "https://toptruyen.net/"
-    elif "doctruyen5s" in url:
-        headers["Referer"] = "https://doctruyen5s.com/"
-    elif "truyenvnhot" in url:
-        headers["Referer"] = "https://truyenvnhot.com/"
-    elif "umetruyen" in url:
-        headers["Referer"] = "https://umetruyen.com/"
     elif "foxtruyen" in url:
         headers["Referer"] = "https://foxtruyen.com/"
-    elif "cbhentai" in url:
-        headers["Referer"] = "https://cbhentai.com/"
-    elif "mehentai" in url:
-        headers["Referer"] = "https://mehentai.net/"
-    elif "tranh18" in url:
-        headers["Referer"] = "https://tranh18.com/"
-    elif "xxmanhwa" in url:
-        headers["Referer"] = "https://xxmanhwa.com/"
+    elif "otruyen" in url:
+        headers["Referer"] = "https://otruyen.cc"
 
     async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
         try:
             resp = await client.get(url, headers=headers)
             if resp.status_code != 200:
+                 print(f"Proxy Failed: {resp.status_code} for {url}")
                  return Response(status_code=resp.status_code)
             return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
         except Exception as e:
@@ -89,25 +58,15 @@ async def proxy_image(url: str):
             return Response(status_code=404)
 
 # --- Source Management ---
-from otruyen import otruyen
-from mangadex import mangadex 
-from comick import comick
-from cmanga import cmanga
-from nettruyen import nettruyen
-from truyenqq import truyenqq
-from blogtruyen import blogtruyen
+# --- Source Management ---
+# --- Source Management ---
+from sources.otruyen import otruyen
+from sources.mangadex import mangadex 
+from sources.nettruyen import nettruyen
+from sources.truyenqq import truyenqq
 
 # Individual new sources
 source_imports = [
-    ("mangaplus", "MangaPlusSource"),
-    ("manhwatop", "ManhwatopSource"),
-    ("mangakakalot", "MangakakalotSource"),
-    ("batoto", "BatotoSource"),
-    ("sayhentai", "SayHentaiSource"),
-    ("nhentai", "NHentaiSource"),
-    ("hentaivn", "HentaiVNSource"),
-    ("cuutruyen", "CuutruyenSource"),
-    ("lxmanga", "LXMangaSource"),
     ("nhattruyen", "nhattruyen"),
 ]
 
@@ -116,7 +75,8 @@ NEW_SOURCES = {}
 # Import from individual files
 for module_name, class_name in source_imports:
     try:
-        module = __import__(module_name)
+        # Import from sources package
+        module = __import__(f"sources.{module_name}", fromlist=[class_name])
         if hasattr(module, class_name):
             obj = getattr(module, class_name)
             NEW_SOURCES[module_name] = obj() if isinstance(obj, type) else obj
@@ -125,20 +85,17 @@ for module_name, class_name in source_imports:
 
 # Import aggregated clones
 try:
-    from aggregated_sources import (
+    from sources.aggregated_sources import (
         doctruyen3q, truyentranh3q, toptruyen, 
-        nettruyenco, nettruyenx, vlogtruyen,
-        doctruyen5s, truyenvn, umetruyen, foxtruyen,
-        cbhentai, mehentai, tranh18, xxmanhwa
+        nettruyenco, nettruyenx, 
+        doctruyen5s, foxtruyen, truyenvn
     )
     agg_map = {
         "doctruyen3q": doctruyen3q, "truyentranh3q": truyentranh3q, 
         "toptruyen": toptruyen, "nettruyenco": nettruyenco, 
-        "nettruyenx": nettruyenx, "vlogtruyen": vlogtruyen,
-        "doctruyen5s": doctruyen5s, "truyenvn": truyenvn, 
-        "umetruyen": umetruyen, "foxtruyen": foxtruyen,
-        "cbhentai": cbhentai, "mehentai": mehentai, 
-        "tranh18": tranh18, "xxmanhwa": xxmanhwa
+        "nettruyenx": nettruyenx,
+        "doctruyen5s": doctruyen5s, "truyenvn": truyenvn,
+        "foxtruyen": foxtruyen
     }
     NEW_SOURCES.update(agg_map)
 except Exception as e:
@@ -152,11 +109,8 @@ import json
 SOURCES = {
     "otruyen": otruyen,
     "mangadex": mangadex,
-    "comick": comick,
-    "cmanga": cmanga,
     "nettruyen": nettruyen,
     "truyenqq": truyenqq,
-    "blogtruyen": blogtruyen,
 }
 
 # Add new sources
@@ -373,15 +327,18 @@ async def get_trending(page: int = 1, sources: str = None, lang: str = None):
         }
 
         # Parse source filter
-        if sources:
-            selected_sources = [s.strip() for s in sources.split(',') if s.strip() in SOURCES]
+        if sources is not None:
+            if not sources.strip(): # Empty string means NO sources selected
+                selected_sources = []
+            else:
+                selected_sources = [s.strip() for s in sources.split(',') if s.strip() in SOURCES]
         else:
             selected_sources = list(SOURCES.keys())
         
         # Apply language filtering if requested
         if lang == 'vi':
-            # Strictly use only Vietnamese-first sources
-            selected_sources = [s for s in selected_sources if SOURCE_LANGS.get(s) == 'vi']
+            # Strictly use only Vietnamese-first sources OR multi-language sources that support VI
+            selected_sources = [s for s in selected_sources if SOURCE_LANGS.get(s) in ['vi', 'multi']]
             print(f"[API] Chỉ giữ lời nguồn tiếng Việt: {selected_sources}")
         
         print(f"[API] Đang lấy trending từ {len(selected_sources)} nguồn, trang: {page}")
@@ -591,7 +548,7 @@ async def get_manga_details(manga_id: str, source: str = None):
 
 
 @app.get("/api/chapter/{chapter_id:path}") # Using path type to allow URLs as ID
-async def get_chapter_pages(chapter_id: str):
+async def get_chapter_pages(chapter_id: str, source: str = None):
     # Check cache first for offline reading
     if chapter_id in CHAPTER_CACHE:
         cached = CHAPTER_CACHE[chapter_id]
@@ -599,11 +556,22 @@ async def get_chapter_pages(chapter_id: str):
         return {"id": chapter_id, "pages": cached['pages'], "cached": True}
     
     try:
-        source = get_source()
-        if hasattr(source, 'fetch_chapter_pages'):
-            result = await source.fetch_chapter_pages(chapter_id)
+        # Source detection/selection
+        src = None
+        if source and source in SOURCES:
+            src = SOURCES[source]
+        elif "otruyenapi.com" in chapter_id or "otruyencdn.com" in chapter_id:
+            src = SOURCES.get("otruyen")
+        
+        if not src:
+            src = get_source()
+            
+        print(f"[API] Chapter Request: {chapter_id} (Source: {getattr(src, 'name', 'Unknown')})")
+        
+        if hasattr(src, 'fetch_chapter_pages'):
+            result = await src.fetch_chapter_pages(chapter_id)
         else:
-            result = await source.fetch_chapter_pages(chapter_id)
+            result = await src.fetch_chapter_pages(chapter_id)
         
         # Cache the result for future offline access
         if result and result.get('pages'):
@@ -848,6 +816,10 @@ async def read_all_notifications():
         n['read'] = True
     save_data()
     return {"status": "ok"}
+
+# Mount frontend (Robust path)
+frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
+app.mount("/", StaticFiles(directory=frontend_path, html=True), name="static")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

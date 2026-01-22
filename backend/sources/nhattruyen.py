@@ -2,7 +2,7 @@
 NhatTruyen Source - Implementation as NetTruyen Clone
 """
 
-from nettruyen import NetTruyenSource
+from .nettruyen import NetTruyenSource
 
 class NhatTruyenSource(NetTruyenSource):
     """Manga source implementation for NhatTruyen (NetTruyen clone)"""

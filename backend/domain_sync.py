@@ -4,7 +4,14 @@ import os
 import asyncio
 
 KEI_INDEX_URL = "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.json"
-DOMAINS_CACHE_FILE = "dynamic_domains.json"
+
+# Ensure data directory exists
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+DOMAINS_CACHE_FILE = os.path.join(DATA_DIR, "dynamic_domains.json")
 
 # Mapping between Keiyoushi package IDs/names and our internal source IDs
 # This helps us identify which URL belongs to which source in our app
@@ -12,25 +19,10 @@ SOURCE_MAPPING = {
     # Keiyoushi Name/Pkg : Our ID
     "nettruyen": "nettruyen",
     "truyenqq": "truyenqq",
-    "blogtruyen": "blogtruyen",
-    "cmanga": "cmanga",
-    "otruyen": "otruyen",
-    "hentaivn": "hentaivn",
-    "sayhentai": "sayhentai",
-    "lxmanga": "lxmanga",
-    "cuutruyen": "cuutruyen",
     "nhattruyen": "nhattruyen",
     "doctruyen3q": "doctruyen3q",
     "truyentranh3q": "truyentranh3q",
     "toptruyen": "toptruyen",
-    "vlogtruyen": "vlogtruyen",
-    "mangadex": "mangadex",
-    "comick": "comick",
-    "mangaplus": "mangaplus",
-    "batoto": "batoto",
-    "nhentai": "nhentai",
-    "mangakakalot": "mangakakalot",
-    "manhwatop": "manhwatop"
 }
 
 async def sync_domains():

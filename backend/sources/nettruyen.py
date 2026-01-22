@@ -5,7 +5,8 @@ NetTruyen Source - Implementation of BaseSource (Scraping)
 import httpx
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
-from base_source import BaseSource
+import urllib.parse
+from .base import BaseSource
 
 
 class NetTruyenSource(BaseSource):
@@ -13,40 +14,68 @@ class NetTruyenSource(BaseSource):
     
     name = "NetTruyen"
     language = "VI"
-    base_url = "https://nettruyenar.com"
-    icon = "https://nettruyenar.com/favicon.ico"
+    base_url = "https://nettruyenww.com" # Updated default
+    icon = "https://nettruyenww.com/favicon.ico"
     
     cache_file = "nettruyen_cache.json"
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://nettruyenar.com/"
+        "Referer": "https://nettruyenww.com/"
     }
+    
+    # Backup domains
+    # Backup domains
+    extra_domains = ["https://nettruyenx.com", "https://nettruyenww.com", "https://nettruyen.live"]
+    
+    item_selector = ".items .item"
     
     async def fetch_trending(self, page: int = 1, limit: int = 100) -> List[Dict]:
         """Fetch popular manga from NetTruyen with 100 items limit"""
-        cache_key = f"trending_v3_{page}_{limit}"
+        cache_key = f"trending_v4_{page}_{limit}"
         
         cached = self.get_from_cache(cache_key)
         if cached:
             return cached
             
+        # Domain rotation list if primary fails
+        domains = [self.base_url] + self.extra_domains
+        
         async with httpx.AsyncClient(headers=self.headers, timeout=30.0, follow_redirects=True) as client:
             try:
                 results = []
                 current_api_page = (page - 1) * 3 + 1 # Approximate to get enough
                 
+                # Try to find a working domain first
+                working_domain = self.base_url
+                for dom in domains:
+                    try:
+                        t_resp = await client.get(dom)
+                        if t_resp.status_code == 200:
+                            working_domain = dom
+                            self.base_url = dom # Update base url for future use
+                            self.headers["Referer"] = f"{dom}/"
+                            break
+                    except:
+                        continue
+                
                 while len(results) < limit and current_api_page < 10:
-                    url = self.base_url
+                    url = working_domain
                     if current_api_page > 1:
-                        url = f"{self.base_url}/trang-{current_api_page}"
+                        url = f"{working_domain}/trang-{current_api_page}"
                     
                     resp = await client.get(url)
                     if resp.status_code != 200:
                         break
                         
                     soup = BeautifulSoup(resp.text, 'html.parser')
-                    items = soup.select('.items .item')
+                    soup = BeautifulSoup(resp.text, 'html.parser')
+                    items = soup.select(self.item_selector)
+                    if not items:
+                        # Fallback for some clones
+                        items = soup.select('.item')
+                        if not items:
+                            break
                     if not items:
                         break
                         
@@ -67,7 +96,9 @@ class NetTruyenSource(BaseSource):
                         
                         title = title_el.text.strip()
                         href = title_el['href']
-                        manga_id = href.replace(self.base_url, '').strip('/')
+                        # Robust ID extraction: get path only
+                        parsed_href = urllib.parse.urlparse(href)
+                        manga_id = parsed_href.path.strip('/')
                         
                         img_el = item.select_one('img')
                         cover_url = ""
@@ -150,10 +181,9 @@ class NetTruyenSource(BaseSource):
                     if not link: continue
                     
                     href = link['href']
-                    if href.startswith('http'):
-                        chap_id = href.replace(self.base_url, '').strip('/')
-                    else:
-                        chap_id = href.strip('/')
+                    # Robust ID extraction: get path only
+                    parsed_href = urllib.parse.urlparse(href)
+                    chap_id = parsed_href.path.strip('/')
                         
                     chap_title = link.text.strip()
                     
@@ -185,6 +215,8 @@ class NetTruyenSource(BaseSource):
         async with httpx.AsyncClient(headers=self.headers, timeout=30.0, follow_redirects=True) as client:
             try:
                 url = f"{self.base_url}/{chapter_id}"
+                if chapter_id.startswith('http'): url = chapter_id
+
                 resp = await client.get(url)
                 if resp.status_code != 200:
                     # Try with trailing slash

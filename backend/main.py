@@ -178,10 +178,12 @@ async def sync_domains_periodically():
         await sync_domains()
         apply_dynamic_domains()
         await asyncio.sleep(43200) # Sync every 12 hours
+# Data directory for persistency
+DATA_DIR = os.environ.get("DATA_DIR", "data")
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR, exist_ok=True)
 
-
-
-ACTIVE_SOURCE_FILE = "active_source.json"
+ACTIVE_SOURCE_FILE = os.path.join(DATA_DIR, "active_source.json")
 
 def load_active_source():
     if os.path.exists(ACTIVE_SOURCE_FILE):
@@ -237,9 +239,10 @@ async def select_source(source_id: str):
         return {"status": "success", "active_source": source_id}
     return {"status": "error", "message": "Source not found"}
 
+
 # File-based persistence
-LIBRARY_FILE = "user_library.json"
-HISTORY_FILE = "reading_history.json"
+LIBRARY_FILE = os.path.join(DATA_DIR, "user_library.json")
+HISTORY_FILE = os.path.join(DATA_DIR, "reading_history.json")
 
 # In-memory storage: { manga_id: { "current_chapter": {...}, "added_at": timestamp } }
 USER_LIBRARY = {}
@@ -251,11 +254,11 @@ MAX_HISTORY = 50
 
 # Notifications: list of { type, manga_id, title, chapter_title, timestamp, read }
 NOTIFICATIONS = []
-NOTIFICATION_FILE = "notifications.json"
+NOTIFICATION_FILE = os.path.join(DATA_DIR, "notifications.json")
 
 # Chapter cache for offline reading: { chapter_id: { pages: [], cached_at: timestamp } }
 CHAPTER_CACHE = {}
-CHAPTER_CACHE_FILE = "chapter_cache.json"
+CHAPTER_CACHE_FILE = os.path.join(DATA_DIR, "chapter_cache.json")
 
 def save_data():
     try:
@@ -857,4 +860,6 @@ frontend_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__f
 app.mount("/", StaticFiles(directory=frontend_path, html=True), name="static")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

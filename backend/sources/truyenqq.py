@@ -65,7 +65,10 @@ class TruyenQQSource(BaseSource):
                 "https://truyenqqq.com",
                 "https://truyenqqvn.com",
                 "https://truyenqqvip.com",
-                "https://truyenvua.com"
+                "https://truyenvua.com",
+                "https://truyenqqvn.asia",
+                "https://truyenqq.pro",
+                "https://truyenqq.org"
             ]
             
             valid_html = None

@@ -163,15 +163,31 @@ class BaseSource(ABC):
         Fetch HTML with triple fallback: curl_cffi -> cloudscraper -> httpx.
         Centralized Cloudflare bypass logic with support for POST.
         """
-        headers = custom_headers if custom_headers else getattr(self, "headers", {
+        # Build more complete browser-like headers
+        headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
-        })
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Cache-Control": "max-age=0",
+        }
+        if custom_headers:
+            headers.update(custom_headers)
+            
+        # Add a small random delay to mimic human behavior (0.1s to 0.5s)
+        import random
+        await asyncio.sleep(random.uniform(0.1, 0.5))
         
         # 1. Try curl_cffi (Chrome impersonation - Best for Cloudflare)
         if HAS_CURL_CFFI:
             try:
+                # Reuse session or create new one with impersonation
                 async with AsyncSession(impersonate="chrome120", verify=False) as client:
                     if method.upper() == "POST":
                         resp = await client.post(url, headers=headers, data=data, cookies=cookies, timeout=25)
@@ -190,10 +206,14 @@ class BaseSource(ABC):
             try:
                 def sync_fetch():
                     scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
+                    # Cloudscraper doesn't always handle complex headers well, so we use simpler ones if needed
+                    s_headers = {"User-Agent": headers["User-Agent"]}
+                    if "Referer" in headers: s_headers["Referer"] = headers["Referer"]
+                    
                     if method.upper() == "POST":
-                        return scraper.post(url, headers=headers, data=data, cookies=cookies, timeout=20)
+                        return scraper.post(url, headers=s_headers, data=data, cookies=cookies, timeout=20)
                     else:
-                        return scraper.get(url, headers=headers, cookies=cookies, timeout=20)
+                        return scraper.get(url, headers=s_headers, cookies=cookies, timeout=20)
                 
                 loop = asyncio.get_event_loop()
                 resp = await loop.run_in_executor(None, sync_fetch)

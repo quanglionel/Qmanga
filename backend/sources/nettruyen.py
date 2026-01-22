@@ -31,8 +31,12 @@ class NetTruyenSource(BaseSource):
         "https://nettruyenbb.com",
         "https://nettruyenvv.com",
         "https://nettruyentv.com",
+        "https://nettruyenco.vn",
+        "https://nettruyenrr.com",
         "https://nettruyenx.com",
-        "https://nettruyenww.com"
+        "https://nettruyenww.com",
+        "https://nettruyenin.com",
+        "https://nettruyentop.com"
     ]
     
     item_selector = ".items .item"
@@ -58,7 +62,7 @@ class NetTruyenSource(BaseSource):
             valid_html = None
             working_domain = self.base_url
 
-            print(f"[NetTruyen] Đang thử tìm tên miền hoạt động trong: {all_possible_domains}")
+            print(f"[{self.name}] Đang thử tìm tên miền hoạt động trong: {all_possible_domains}")
             
             for dom in all_possible_domains:
                 dom = dom.rstrip('/')
@@ -74,13 +78,13 @@ class NetTruyenSource(BaseSource):
                     working_domain = dom
                     self.base_url = dom 
                     self.headers["Referer"] = f"{dom}/"
-                    print(f"[NetTruyen] KẾT NỐI THÀNH CÔNG: {dom}")
+                    print(f"[{self.name}] KẾT NỐI THÀNH CÔNG: {dom}")
                     break
                 else:
-                    print(f"[NetTruyen] Tên miền {dom} bị chặn (403) hoặc không có dữ liệu.")
+                    print(f"[{self.name}] Tên miền {dom} bị chặn (403) hoặc không có dữ liệu.")
 
             if not valid_html:
-                print("[NetTruyen] TẤT CẢ các tên miền đều bị chặn bởi Cloudflare.")
+                print(f"[{self.name}] TẤT CẢ các tên miền đều bị chặn bởi Cloudflare.")
                 return {"active_manga": [], "new_manga": []}
 
             seen_ids = set()

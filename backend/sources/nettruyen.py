@@ -27,18 +27,27 @@ class NetTruyenSource(BaseSource):
     
     name = "NetTruyen"
     language = "VI"
-    base_url = "https://nettruyenww.com" # Updated default
-    icon = "https://nettruyenww.com/favicon.ico"
+    base_url = "https://nettruyen.best" 
+    icon = "https://nettruyen.best/favicon.ico"
     
     cache_file = "nettruyen_cache.json"
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://nettruyenww.com/"
+        "Referer": "https://nettruyen.best/",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
     }
     
     # Backup domains
-    extra_domains = ["https://nettruyenx.com", "https://nettruyenww.com", "https://nettruyen.live"]
+    extra_domains = [
+        "https://nettruyennew.com",
+        "https://nettruyenbb.com",
+        "https://nettruyenvv.com",
+        "https://nettruyentv.com",
+        "https://nettruyenx.com",
+        "https://nettruyenww.com"
+    ]
     
     item_selector = ".items .item"
     

@@ -98,76 +98,92 @@ class NetTruyenSource(BaseSource):
             results = []
             current_api_page = (page - 1) * 3 + 1
             
-            # Try to find a working domain first
+            # List of domains to try
+            all_possible_domains = [self.base_url] + self.extra_domains
+            valid_html = None
             working_domain = self.base_url
-            for dom in domains:
-                html = await self._fetch_html(dom)
-                if html:
+
+            print(f"[NetTruyen] Đang thử tìm tên miền hoạt động trong: {all_possible_domains}")
+            
+            for dom in all_possible_domains:
+                dom = dom.rstrip('/')
+                test_url = dom if current_api_page == 1 else f"{dom}/trang-{current_api_page}"
+                html = await self._fetch_html(test_url)
+                if html and "NetTruyen" in html: # Xác nhận là có nội dung thật
+                    valid_html = html
                     working_domain = dom
-                    self.base_url = dom 
-                    self.headers["Referer"] = f"{dom}/"
+                    print(f"[NetTruyen] Cứu vãn thành công! Đang dùng: {dom}")
                     break
+                else:
+                    print(f"[NetTruyen] Tên miền {dom} bị chặn (403) hoặc không có dữ liệu.")
+
+            if not valid_html:
+                print("[NetTruyen] TẤT CẢ các tên miền đều bị chặn trên Render.")
+                return {"active_manga": [], "new_manga": []}
 
             seen_ids = set()
-            max_scan_pages = current_api_page + 4  # Chỉ quét tối đa 5 trang để đảm bảo tốc độ
+            max_scan_pages = current_api_page + 2
+            
+            # Use the already fetched valid_html for the first page
+            current_html = valid_html
             
             while len(results) < limit and current_api_page <= max_scan_pages:
-                url = working_domain
-                if current_api_page > 1:
-                    url = f"{working_domain}/trang-{current_api_page}"
-                
-                try:
-                    html = await self._fetch_html(url)
-                    if not html:
-                        break
-                        
-                    soup = BeautifulSoup(html, 'html.parser')
-                    items = soup.select(self.item_selector) or soup.select('.item')
-                    if not items:
-                        break
-                            
-                    for item in items:
-                        title_el = item.select_one('h3 a')
-                        if not title_el: continue
-                        
-                        latest_chap = item.select_one('.comic-item li a') or item.select_one('.chapter a')
-                        chap_text = latest_chap.text.strip() if latest_chap else "N/A"
-                        
-                        # Loại bỏ "Sắp có" nhưng không quá khắt khe để giữ số lượng
-                        if "sắp có" in chap_text.lower():
-                            continue
-                            
-                        title = title_el.text.strip()
-                        href = title_el['href']
-                        parsed_href = urllib.parse.urlparse(href)
-                        manga_id = parsed_href.path.strip('/')
-                        
-                        if manga_id in seen_ids:
-                            continue
-                        seen_ids.add(manga_id)
-                        
-                        img_el = item.select_one('img')
-                        cover_url = ""
-                        if img_el:
-                             cover_url = img_el.get('data-original') or img_el.get('src')
-                             if cover_url and cover_url.startswith('//'):
-                                 cover_url = 'https:' + cover_url
-                             elif cover_url and not cover_url.startswith('http'):
-                                 cover_url = self.base_url.rstrip('/') + '/' + cover_url.lstrip('/')
-                        
-                        results.append({
-                            "id": manga_id,
-                            "title": title,
-                            "cover": cover_url,
-                            "latest_chapter": chap_text,
-                            "updated_at": item.select_one('.time').text.strip() if item.select_one('.time') else ""
-                        })
-                        
-                        if len(results) >= limit:
+                if not current_html:
+                    url = working_domain
+                    if current_api_page > 1:
+                        url = f"{working_domain}/trang-{current_api_page}"
+                    
+                    try:
+                        current_html = await self._fetch_html(url)
+                        if not current_html:
                             break
-                except:
+                    except:
+                        break
+                
+                soup = BeautifulSoup(current_html, 'html.parser')
+                items = soup.select(self.item_selector) or soup.select('.item')
+                if not items:
                     break
                         
+                for item in items:
+                    title_el = item.select_one('h3 a')
+                    if not title_el: continue
+                    
+                    latest_chap = item.select_one('.comic-item li a') or item.select_one('.chapter a')
+                    chap_text = latest_chap.text.strip() if latest_chap else "N/A"
+                    
+                    if "sắp có" in chap_text.lower():
+                        continue
+                        
+                    title = title_el.text.strip()
+                    href = title_el['href']
+                    parsed_href = urllib.parse.urlparse(href)
+                    manga_id = parsed_href.path.strip('/')
+                    
+                    if manga_id in seen_ids:
+                        continue
+                    seen_ids.add(manga_id)
+                    
+                    img_el = item.select_one('img')
+                    cover_url = ""
+                    if img_el:
+                         cover_url = img_el.get('data-original') or img_el.get('src')
+                         if cover_url and cover_url.startswith('//'):
+                             cover_url = 'https:' + cover_url
+                    
+                    results.append({
+                        "id": manga_id,
+                        "title": title,
+                        "cover": cover_url,
+                        "latest_chapter": chap_text,
+                        "updated_at": item.select_one('.time').text.strip() if item.select_one('.time') else ""
+                    })
+                    
+                    if len(results) >= limit:
+                        break
+                
+                # Reset for next page
+                current_html = None
                 current_api_page += 1
             
             response = {

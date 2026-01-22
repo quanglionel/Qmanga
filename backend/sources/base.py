@@ -175,19 +175,17 @@ class BaseSource(ABC):
             "Sec-Fetch-Mode": "navigate",
             "Sec-Fetch-Site": "none",
             "Sec-Fetch-User": "?1",
-            "Cache-Control": "max-age=0",
         }
         if custom_headers:
             headers.update(custom_headers)
             
-        # Add a small random delay to mimic human behavior (0.1s to 0.5s)
         import random
         await asyncio.sleep(random.uniform(0.1, 0.5))
         
         # 1. Try curl_cffi (Chrome impersonation - Best for Cloudflare)
         if HAS_CURL_CFFI:
+            # Attempt 1: Desktop Chrome
             try:
-                # Reuse session or create new one with impersonation
                 async with AsyncSession(impersonate="chrome120", verify=False) as client:
                     if method.upper() == "POST":
                         resp = await client.post(url, headers=headers, data=data, cookies=cookies, timeout=25)
@@ -196,8 +194,20 @@ class BaseSource(ABC):
                         
                     if resp.status_code == 200:
                         return resp.text
+                    
                     if resp.status_code == 403:
-                         print(f"[{self.name}] curl_cffi: 403 Forbidden for {url}")
+                         print(f"[{self.name}] curl_cffi (Desktop): 403 Forbidden for {url}")
+                         # Attempt 2: Mobile Safari (Sometime Cloudflare is lighter on mobile)
+                         async with AsyncSession(impersonate="safari_ios_16_0", verify=False) as m_client:
+                              m_headers = headers.copy()
+                              m_headers["User-Agent"] = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
+                              if method.upper() == "POST":
+                                   resp = await m_client.post(url, headers=m_headers, data=data, cookies=cookies, timeout=25)
+                              else:
+                                   resp = await m_client.get(url, headers=m_headers, cookies=cookies, timeout=25)
+                              if resp.status_code == 200:
+                                   print(f"[{self.name}] curl_cffi: Success using Mobile Safari impersonation!")
+                                   return resp.text
             except Exception as e:
                 print(f"[{self.name}] curl_cffi error: {str(e)[:100]}")
 
@@ -205,8 +215,8 @@ class BaseSource(ABC):
         if HAS_CLOUDSCRAPER:
             try:
                 def sync_fetch():
-                    scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
-                    # Cloudscraper doesn't always handle complex headers well, so we use simpler ones if needed
+                    # Try mobile scraper first as it's often more successful on cloud IPs
+                    scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'android', 'mobile': True})
                     s_headers = {"User-Agent": headers["User-Agent"]}
                     if "Referer" in headers: s_headers["Referer"] = headers["Referer"]
                     
@@ -219,12 +229,10 @@ class BaseSource(ABC):
                 resp = await loop.run_in_executor(None, sync_fetch)
                 if resp.status_code == 200:
                     return resp.text
-                if resp.status_code == 403:
-                    print(f"[{self.name}] cloudscraper: 403 Forbidden for {url}")
             except Exception as e:
                 print(f"[{self.name}] cloudscraper error: {str(e)[:100]}")
 
-        # 3. Last resort: httpx
+        # 3. Last resort: httpx (No bypass)
         if httpx:
             try:
                 async with httpx.AsyncClient(headers=headers, cookies=cookies, timeout=25.0, follow_redirects=True, verify=False) as client:
@@ -234,7 +242,7 @@ class BaseSource(ABC):
                         resp = await client.get(url)
                     if resp.status_code == 200:
                         return resp.text
-                    print(f"[{self.name}] httpx final status: {resp.status_code} for {url}")
+                    print(f"[{self.name}] httpx status: {resp.status_code} for {url}")
             except Exception as e:
                 print(f"[{self.name}] httpx error: {str(e)[:100]}")
         

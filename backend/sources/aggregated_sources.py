@@ -51,7 +51,7 @@ class GenericNettruyenSource(NetTruyenSource):
         super().__init__()
         
         self.headers["Referer"] = f"{base_url}/"
-        self.extra_domains = [] # Don't use NetTruyen backups for clones
+        # We inherit self.extra_domains from NetTruyenSource by default now
 
 
 

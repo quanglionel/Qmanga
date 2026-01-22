@@ -28,10 +28,11 @@ class NetTruyenSource(BaseSource):
     # Backup domains
     extra_domains = [
         "https://nettruyennew.com",
+        "https://nettruyenvip.com",
+        "https://nettruyenco.vn",
         "https://nettruyenbb.com",
         "https://nettruyenvv.com",
         "https://nettruyentv.com",
-        "https://nettruyenco.vn",
         "https://nettruyenrr.com",
         "https://nettruyenx.com",
         "https://nettruyenww.com",

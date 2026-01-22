@@ -42,11 +42,14 @@ class CurlWrapper:
 class GenericNettruyenSource(NetTruyenSource):
     """A helper to quickly add NetTruyen clones"""
     def __init__(self, name, base_url, icon=None):
-        super().__init__()
         self.name = name
         self.base_url = base_url
         self.icon = icon or f"{base_url}/favicon.ico"
         self.cache_file = f"{name.lower().replace(' ', '_')}_cache.json"
+        
+        # Call super AFTER setting cache_file so it loads correctly
+        super().__init__()
+        
         self.headers["Referer"] = f"{base_url}/"
         self.extra_domains = [] # Don't use NetTruyen backups for clones
 

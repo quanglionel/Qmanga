@@ -27,30 +27,49 @@ async def proxy_image(url: str):
         return Response(status_code=404)
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Add referer based on domain
-    if "mangadex" in url:
-        headers["Referer"] = "https://mangadex.org/"
-    elif "nettruyen" in url or "nettruyenco" in url:
-        headers["Referer"] = "https://nettruyenww.com/"
-    elif "truyenqq" in url or "truyenqqq" in url or "truyenqqno" in url or "truyenvua" in url or "hinhhinh" in url or "tintruyen" in url:
-        headers["Referer"] = "https://truyenqqno.com/"
-    elif "doctruyen3qi" in url:
-        headers["Referer"] = "https://doctruyen3qi.com/"
-    elif "truyentranh3q" in url:
-        headers["Referer"] = "https://truyentranh3q.com/"
-    elif "foxtruyen" in url:
-        headers["Referer"] = "https://foxtruyen.com/"
-    elif "otruyen" in url:
-        headers["Referer"] = "https://otruyen.cc"
+    # Dynamic Referer matching
+    # Try to find a source whose base_url matches the image URL's domain
+    target_domain = ""
+    try:
+        from urllib.parse import urlparse
+        parsed_target = urlparse(url)
+        target_domain = parsed_target.netloc.lower()
+    except: pass
 
-    async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+    found_referer = None
+    if target_domain:
+        for source_id, source in SOURCES.items():
+            if not hasattr(source, 'base_url'): continue
+            
+            source_domain = ""
+            try:
+                source_domain = urlparse(source.base_url).netloc.lower()
+            except: continue
+            
+            if source_domain and (source_domain in target_domain or target_domain in source_domain):
+                found_referer = source.base_url
+                break
+
+    if found_referer:
+        headers["Referer"] = found_referer
+    else:
+        # Fallback to smart generic referrers
+        if "mangadex" in url:
+            headers["Referer"] = "https://mangadex.org/"
+        elif "nettruyen" in url:
+            headers["Referer"] = "https://www.nettruyennew.com/"
+        elif "truyenqq" in url:
+            headers["Referer"] = "https://truyenqqno.com/"
+        elif "otruyen" in url or "img.otruyen" in url:
+            headers["Referer"] = "https://otruyen.cc"
+
+    async with httpx.AsyncClient(follow_redirects=True, timeout=30.0, verify=False) as client:
         try:
             resp = await client.get(url, headers=headers)
             if resp.status_code != 200:
-                 print(f"Proxy Failed: {resp.status_code} for {url}")
                  return Response(status_code=resp.status_code)
             return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
         except Exception as e:
@@ -144,8 +163,7 @@ async def sync_domains_periodically():
     while True:
         await sync_domains()
         apply_dynamic_domains()
-        # Sync every 6 hours
-        await asyncio.sleep(6 * 3600)
+        await asyncio.sleep(43200) # Sync every 12 hours
 
 
 

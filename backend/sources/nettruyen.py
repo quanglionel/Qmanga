@@ -267,7 +267,49 @@ class NetTruyenSource(BaseSource):
         except Exception as e:
             print(f"[NetTruyen] Pages Error: {e}")
             return {"id": chapter_id, "pages": []}
-
+    async def search(self, query: str, page: int = 1) -> List[Dict]:
+        """Search manga on NetTruyen"""
+        q = urllib.parse.quote(query)
+        url = f"{self.base_url}/tim-truyen?keyword={q}&page={page}"
+        
+        html = await self._fetch_html(url)
+        if not html:
+            return []
+            
+        soup = BeautifulSoup(html, 'html.parser')
+        items = soup.select(self.item_selector) or soup.select('.item')
+        
+        results = []
+        for item in items:
+            title_el = item.select_one('h3 a')
+            if not title_el: continue
+            
+            title = title_el.text.strip()
+            href = title_el['href']
+            parsed_href = urllib.parse.urlparse(href)
+            manga_id = parsed_href.path.strip('/')
+            
+            img_el = item.select_one('img')
+            cover_url = ""
+            if img_el:
+                 cover_url = img_el.get('data-original') or img_el.get('src')
+                 if cover_url and cover_url.startswith('//'):
+                     cover_url = 'https:' + cover_url
+                 elif cover_url and not cover_url.startswith('http'):
+                     cover_url = self.base_url.rstrip('/') + '/' + cover_url.lstrip('/')
+            
+            latest_chap = item.select_one('.chapter a')
+            chap_text = latest_chap.text.strip() if latest_chap else "N/A"
+            
+            results.append({
+                "id": manga_id,
+                "title": title,
+                "cover": cover_url,
+                "latest_chapter": chap_text,
+                "source": "nettruyen"
+            })
+            
+        return results
 
 
 # Singleton instance

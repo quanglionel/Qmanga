@@ -2,7 +2,16 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Install system dependencies for curl_cffi and building packages
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libcurl4 \
+    libnss3 \
+    libnspr4 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

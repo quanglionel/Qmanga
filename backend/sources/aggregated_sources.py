@@ -9,7 +9,12 @@ import httpx
 from bs4 import BeautifulSoup
 import urllib.parse
 from typing import List, Dict, Optional
-from curl_cffi.requests import AsyncSession
+try:
+    from curl_cffi.requests import AsyncSession
+    HAS_CURL_CFFI = True
+except ImportError:
+    HAS_CURL_CFFI = False
+
 import subprocess
 import shutil
 
@@ -76,15 +81,16 @@ class DocTruyen5SSource(BaseSource):
 
         # Try curl_cffi first
         html = None
-        try:
-            async with AsyncSession(headers=self.headers, impersonate="chrome120", verify=False) as client:
-                url = self.base_url
-                if page > 1: url = f"{self.base_url}/danh-sach-truyen?page={page}"
-                resp = await client.get(url, timeout=20)
-                if resp.status_code == 200:
-                    html = resp.text
-        except Exception as e:
-            print(f"[{self.name}] Cffi Error: {e}")
+        if HAS_CURL_CFFI:
+            try:
+                async with AsyncSession(headers=self.headers, impersonate="chrome120", verify=False) as client:
+                    url = self.base_url
+                    if page > 1: url = f"{self.base_url}/danh-sach-truyen?page={page}"
+                    resp = await client.get(url, timeout=20)
+                    if resp.status_code == 200:
+                        html = resp.text
+            except Exception as e:
+                print(f"[{self.name}] Cffi Error: {e}")
         
         # Fallback to system curl
         if not html:
@@ -138,11 +144,12 @@ class DocTruyen5SSource(BaseSource):
     async def fetch_manga_details(self, manga_id: str) -> Optional[Dict]:
         url = f"{self.base_url}/{manga_id}"
         html = None
-        try:
-            async with AsyncSession(headers=self.headers, impersonate="chrome120", verify=False) as client:
-                resp = await client.get(url, timeout=20)
-                if resp.status_code == 200: html = resp.text
-        except: pass
+        if HAS_CURL_CFFI:
+            try:
+                async with AsyncSession(headers=self.headers, impersonate="chrome120", verify=False) as client:
+                    resp = await client.get(url, timeout=20)
+                    if resp.status_code == 200: html = resp.text
+            except: pass
         
         if not html:
             html = await CurlWrapper.get(url)
@@ -189,11 +196,12 @@ class DocTruyen5SSource(BaseSource):
     async def fetch_chapter_pages(self, chapter_id: str) -> Dict:
         url = f"{self.base_url}/{chapter_id}"
         html = None
-        try:
-             async with AsyncSession(headers=self.headers, impersonate="chrome120", verify=False) as client:
-                resp = await client.get(url, timeout=20)
-                if resp.status_code == 200: html = resp.text
-        except: pass
+        if HAS_CURL_CFFI:
+            try:
+                 async with AsyncSession(headers=self.headers, impersonate="chrome120", verify=False) as client:
+                    resp = await client.get(url, timeout=20)
+                    if resp.status_code == 200: html = resp.text
+            except: pass
         
         if not html:
             html = await CurlWrapper.get(url)

@@ -36,7 +36,7 @@ class OtruyenSource(BaseSource):
                 api_page = (page - 1) * 4 + 1 # Attempt to get enough items
                 
                 # Fetch multiple pages until we hit the limit or run out
-                while len(results) < limit and api_page < 10: 
+                while len(results) < limit and api_page < 20: 
                     resp = await client.get(
                         f"{self.base_url}/danh-sach/truyen-moi",
                         params={"page": api_page}

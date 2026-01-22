@@ -431,7 +431,7 @@ async def get_trending(page: int = 1, sources: str = None, lang: str = None):
                     title_to_manga[normalized] = item
         
         # Convert back to list and limit
-        merged = list(title_to_manga.values())[:100]
+        merged = list(title_to_manga.values())[:300]
         
         print(f"[API] Tổng cộng: {len(merged)} truyện (đã loại trùng thông minh)")
         

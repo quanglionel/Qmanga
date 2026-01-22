@@ -285,8 +285,8 @@ async function fetchTrendingManga(page = 1) {
         }
 
         // 1. Render Active Manga (always update on page change)
-        // Limit to 100 items
-        const displayLimit = 100;
+        // Limit to 300 items
+        const displayLimit = 300;
         const displayManga = activeManga.slice(0, displayLimit);
 
         displayManga.forEach(manga => {

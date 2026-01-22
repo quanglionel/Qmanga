@@ -73,7 +73,7 @@ class NetTruyenSource(BaseSource):
         
         try:
             results = []
-            current_api_page = (page - 1) * 3 + 1 # Approximate to get enough
+            current_api_page = (page - 1) * 3 + 1
             
             # Try to find a working domain first
             working_domain = self.base_url
@@ -81,11 +81,12 @@ class NetTruyenSource(BaseSource):
                 html = await self._fetch_html(dom)
                 if html:
                     working_domain = dom
-                    self.base_url = dom # Update base url for future use
+                    self.base_url = dom 
                     self.headers["Referer"] = f"{dom}/"
                     break
-            
-            while len(results) < limit and current_api_page < 10:
+
+            seen_ids = set()
+            while len(results) < limit and current_api_page <= 50: 
                 url = working_domain
                 if current_api_page > 1:
                     url = f"{working_domain}/trang-{current_api_page}"
@@ -95,10 +96,7 @@ class NetTruyenSource(BaseSource):
                     break
                     
                 soup = BeautifulSoup(html, 'html.parser')
-                items = soup.select(self.item_selector)
-                if not items:
-                    # Fallback for some clones
-                    items = soup.select('.item')
+                items = soup.select(self.item_selector) or soup.select('.item')
                 if not items:
                     break
                         
@@ -109,15 +107,19 @@ class NetTruyenSource(BaseSource):
                     latest_chap = item.select_one('.comic-item li a') or item.select_one('.chapter a')
                     chap_text = latest_chap.text.strip() if latest_chap else "N/A"
                     
-                    # Filter out "Sắp có" (coming soon) 
-                    if "sắp có" in chap_text.lower():
+                    # 1. LOẠI TRUYỆN "SẮP CÓ"
+                    if "sắp có" in chap_text.lower() or not latest_chap:
                         continue
                         
                     title = title_el.text.strip()
                     href = title_el['href']
-                    # Robust ID extraction: get path only
                     parsed_href = urllib.parse.urlparse(href)
                     manga_id = parsed_href.path.strip('/')
+                    
+                    # 2. LOẠI TRÙNG NỘI BỘ (Nếu ID đã xuất hiện ở trang trước)
+                    if manga_id in seen_ids:
+                        continue
+                    seen_ids.add(manga_id)
                     
                     img_el = item.select_one('img')
                     cover_url = ""

@@ -78,9 +78,10 @@ class TruyenQQSource(BaseSource):
             
         try:
             results = []
+            seen_ids = set()
             current_api_page = (page - 1) * 3 + 1
             
-            while len(results) < limit and current_api_page < 10:
+            while len(results) < limit and current_api_page < 30:
                 url = f"{self.base_url}/truyen-moi-cap-nhat/trang-{current_api_page}.html"
                 if current_api_page == 1:
                     url = f"{self.base_url}/truyen-moi-cap-nhat.html"
@@ -105,8 +106,12 @@ class TruyenQQSource(BaseSource):
                     else:
                         raw_id = href.replace(self.base_url, '').strip('/')
                     
-                    # Remove 'truyen-tranh/' prefix if present to normalize IDs
                     manga_id = raw_id.replace('truyen-tranh/', '')
+                    
+                    # LOẠI TRÙNG NỘI BỘ
+                    if manga_id in seen_ids:
+                        continue
+                    seen_ids.add(manga_id)
                     
                     imgs = item.select('img')
                     cover_url = ""

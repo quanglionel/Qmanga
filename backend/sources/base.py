@@ -9,6 +9,26 @@ from typing import List, Dict, Optional
 import time
 import json
 import os
+import asyncio
+from typing import List, Dict, Optional, Any
+
+# Optional imports for Cloudflare bypass
+try:
+    from curl_cffi.requests import AsyncSession
+    HAS_CURL_CFFI = True
+except ImportError:
+    HAS_CURL_CFFI = False
+
+try:
+    import cloudscraper
+    HAS_CLOUDSCRAPER = True
+except ImportError:
+    HAS_CLOUDSCRAPER = False
+
+try:
+    import httpx
+except ImportError:
+    httpx = None
 
 class BaseSource(ABC):
     """
@@ -135,6 +155,70 @@ class BaseSource(ABC):
             - pages: List[str] (list of image URLs)
         """
         pass
+    
+    # ==================== FETCH UTILITIES ====================
+
+    async def _fetch_html(self, url: str, method: str = "GET", data: Any = None, custom_headers: dict = None, cookies: dict = None) -> Optional[str]:
+        """
+        Fetch HTML with triple fallback: curl_cffi -> cloudscraper -> httpx.
+        Centralized Cloudflare bypass logic with support for POST.
+        """
+        headers = custom_headers if custom_headers else getattr(self, "headers", {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7"
+        })
+        
+        # 1. Try curl_cffi (Chrome impersonation - Best for Cloudflare)
+        if HAS_CURL_CFFI:
+            try:
+                async with AsyncSession(impersonate="chrome120", verify=False) as client:
+                    if method.upper() == "POST":
+                        resp = await client.post(url, headers=headers, data=data, cookies=cookies, timeout=25)
+                    else:
+                        resp = await client.get(url, headers=headers, cookies=cookies, timeout=25)
+                        
+                    if resp.status_code == 200:
+                        return resp.text
+                    if resp.status_code == 403:
+                         print(f"[{self.name}] curl_cffi: 403 Forbidden for {url}")
+            except Exception as e:
+                print(f"[{self.name}] curl_cffi error: {str(e)[:100]}")
+
+        # 2. Try cloudscraper (Fallback using Node.js)
+        if HAS_CLOUDSCRAPER:
+            try:
+                def sync_fetch():
+                    scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
+                    if method.upper() == "POST":
+                        return scraper.post(url, headers=headers, data=data, cookies=cookies, timeout=20)
+                    else:
+                        return scraper.get(url, headers=headers, cookies=cookies, timeout=20)
+                
+                loop = asyncio.get_event_loop()
+                resp = await loop.run_in_executor(None, sync_fetch)
+                if resp.status_code == 200:
+                    return resp.text
+                if resp.status_code == 403:
+                    print(f"[{self.name}] cloudscraper: 403 Forbidden for {url}")
+            except Exception as e:
+                print(f"[{self.name}] cloudscraper error: {str(e)[:100]}")
+
+        # 3. Last resort: httpx
+        if httpx:
+            try:
+                async with httpx.AsyncClient(headers=headers, cookies=cookies, timeout=25.0, follow_redirects=True, verify=False) as client:
+                    if method.upper() == "POST":
+                        resp = await client.post(url, data=data)
+                    else:
+                        resp = await client.get(url)
+                    if resp.status_code == 200:
+                        return resp.text
+                    print(f"[{self.name}] httpx final status: {resp.status_code} for {url}")
+            except Exception as e:
+                print(f"[{self.name}] httpx error: {str(e)[:100]}")
+        
+        return None
     
     # ==================== OPTIONAL METHODS (Can be overridden) ====================
     

@@ -8,20 +8,6 @@ from typing import List, Dict, Optional
 import urllib.parse
 from .base import BaseSource
 
-# Try to import curl_cffi for Cloudflare bypass
-try:
-    from curl_cffi.requests import AsyncSession
-    HAS_CURL_CFFI = True
-except ImportError:
-    HAS_CURL_CFFI = False
-
-try:
-    import cloudscraper
-    HAS_CLOUDSCRAPER = True
-except ImportError:
-    HAS_CLOUDSCRAPER = False
-
-
 class NetTruyenSource(BaseSource):
     """Manga source implementation for NetTruyen scraping"""
     
@@ -50,48 +36,6 @@ class NetTruyenSource(BaseSource):
     ]
     
     item_selector = ".items .item"
-    
-    async def _fetch_html(self, url: str, custom_headers: dict = None) -> Optional[str]:
-        """Fetch HTML with triple fallback: curl_cffi -> cloudscraper -> httpx"""
-        headers = custom_headers if custom_headers else self.headers
-        
-        # 1. Try curl_cffi (Chrome impersonation)
-        if HAS_CURL_CFFI:
-            try:
-                async with AsyncSession(impersonate="chrome120", verify=False) as client:
-                    resp = await client.get(url, headers=headers, timeout=20)
-                    if resp.status_code == 200:
-                        return resp.text
-                    print(f"[NetTruyen] curl_cffi status: {resp.status_code} for {url}")
-            except Exception as e:
-                print(f"[NetTruyen] curl_cffi error: {str(e)[:100]}")
-
-        # 2. Try cloudscraper (Fallback using Node.js)
-        if HAS_CLOUDSCRAPER:
-            try:
-                import asyncio
-                def sync_fetch():
-                    scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
-                    return scraper.get(url, headers=headers, timeout=20)
-                
-                loop = asyncio.get_event_loop()
-                resp = await loop.run_in_executor(None, sync_fetch)
-                if resp.status_code == 200:
-                    return resp.text
-                print(f"[NetTruyen] cloudscraper status: {resp.status_code} for {url}")
-            except Exception as e:
-                print(f"[NetTruyen] cloudscraper error: {str(e)[:100]}")
-
-        # 3. Last resort: httpx
-        try:
-            async with httpx.AsyncClient(headers=headers, timeout=15.0, follow_redirects=True, verify=False) as client:
-                resp = await client.get(url)
-                if resp.status_code == 200:
-                    return resp.text
-                print(f"[NetTruyen] httpx final status: {resp.status_code} for {url}")
-        except: pass
-        
-        return None
 
     
     async def fetch_trending(self, page: int = 1, limit: int = 100) -> List[Dict]:
@@ -129,13 +73,14 @@ class NetTruyenSource(BaseSource):
                     valid_html = html
                     working_domain = dom
                     self.base_url = dom 
+                    self.headers["Referer"] = f"{dom}/"
                     print(f"[NetTruyen] KẾT NỐI THÀNH CÔNG: {dom}")
                     break
                 else:
                     print(f"[NetTruyen] Tên miền {dom} bị chặn (403) hoặc không có dữ liệu.")
 
             if not valid_html:
-                print("[NetTruyen] TẤT CẢ các tên miền đều bị chặn trên Render.")
+                print("[NetTruyen] TẤT CẢ các tên miền đều bị chặn bởi Cloudflare.")
                 return {"active_manga": [], "new_manga": []}
 
             seen_ids = set()
@@ -151,7 +96,10 @@ class NetTruyenSource(BaseSource):
                         url = f"{working_domain}/trang-{current_api_page}"
                     
                     try:
-                        current_html = await self._fetch_html(url)
+                        # Use updated Referer
+                        test_headers = self.headers.copy()
+                        test_headers["Referer"] = f"{working_domain}/"
+                        current_html = await self._fetch_html(url, custom_headers=test_headers)
                         if not current_html:
                             break
                     except:

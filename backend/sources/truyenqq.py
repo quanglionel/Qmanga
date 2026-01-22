@@ -3,20 +3,6 @@ from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
 from .base import BaseSource
 
-# Try to import curl_cffi for Cloudflare bypass
-try:
-    from curl_cffi.requests import AsyncSession
-    HAS_CURL_CFFI = True
-except ImportError:
-    HAS_CURL_CFFI = False
-
-try:
-    import cloudscraper
-    HAS_CLOUDSCRAPER = True
-except ImportError:
-    HAS_CLOUDSCRAPER = False
-
-
 class TruyenQQSource(BaseSource):
     """Manga source implementation for TruyenQQ scraping"""
     
@@ -31,53 +17,19 @@ class TruyenQQSource(BaseSource):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Referer": "https://truyenqqno.com/"
     }
+    
+    extra_domains = [
+        "https://truyenqqno.com",
+        "https://truyenqqq.com",
+        "https://truyenqqvn.com",
+        "https://truyenqqvip.com",
+        "https://truyenvua.com"
+    ]
 
     def __init__(self):
         super().__init__()
         self.cookies = {}
         self.load_cookies()
-
-    async def _fetch_html(self, url: str, custom_headers: dict = None) -> Optional[str]:
-        """Fetch HTML with triple fallback: curl_cffi -> cloudscraper -> httpx"""
-        headers = custom_headers if custom_headers else self.headers
-        
-        # 1. Try curl_cffi
-        if HAS_CURL_CFFI:
-            try:
-                async with AsyncSession(impersonate="chrome120", verify=False) as client:
-                    resp = await client.get(url, headers=headers, cookies=self.cookies, timeout=25)
-                    if resp.status_code == 200:
-                        return resp.text
-                    print(f"[TruyenQQ] curl_cffi status: {resp.status_code} for {url}")
-            except Exception as e:
-                print(f"[TruyenQQ] curl_cffi error: {str(e)[:100]}")
-        
-        # 2. Try cloudscraper
-        if HAS_CLOUDSCRAPER:
-            try:
-                import asyncio
-                def sync_fetch():
-                    scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
-                    return scraper.get(url, headers=headers, timeout=20)
-                
-                loop = asyncio.get_event_loop()
-                resp = await loop.run_in_executor(None, sync_fetch)
-                if resp.status_code == 200:
-                    return resp.text
-                print(f"[TruyenQQ] cloudscraper status: {resp.status_code} for {url}")
-            except Exception as e:
-                print(f"[TruyenQQ] cloudscraper error: {str(e)[:100]}")
-
-        # 3. Last resort: httpx
-        try:
-            async with httpx.AsyncClient(headers=headers, cookies=self.cookies, timeout=20.0, follow_redirects=True, verify=False) as client:
-                resp = await client.get(url)
-                if resp.status_code == 200:
-                    return resp.text
-                print(f"[TruyenQQ] httpx final status: {resp.status_code} for {url}")
-        except: pass
-        
-        return None
 
 
     def load_cookies(self):
@@ -131,6 +83,7 @@ class TruyenQQSource(BaseSource):
                     valid_html = html
                     working_domain = dom
                     self.base_url = dom
+                    self.headers["Referer"] = f"{dom}/"
                     print(f"[TruyenQQ] KẾT NỐI THÀNH CÔNG: {dom}")
                     break
                 else:
@@ -150,14 +103,15 @@ class TruyenQQSource(BaseSource):
                     
                     test_headers = self.headers.copy()
                     test_headers["Referer"] = f"{working_domain}/"
-                    current_html = await self._fetch_html(url, custom_headers=test_headers)
+                    current_html = await self._fetch_html(url, custom_headers=test_headers, cookies=self.cookies)
                     if not current_html:
                         break
                 
-                soup = BeautifulSoup(current_html, 'html.parser')
-                items = soup.select('.list_grid li')
-                if not items:
-                    break
+                try:
+                    soup = BeautifulSoup(current_html, 'html.parser')
+                    items = soup.select('.list_grid li')
+                    if not items:
+                        break
                         
                     for item in items:
                         title_el = item.select_one('.book_name a')
@@ -168,7 +122,7 @@ class TruyenQQSource(BaseSource):
                         if href.startswith('/'):
                             raw_id = href.strip('/')
                         else:
-                            raw_id = href.replace(self.base_url, '').strip('/')
+                            raw_id = href.replace(working_domain, '').strip('/')
                         
                         manga_id = raw_id.replace('truyen-tranh/', '')
                         
@@ -182,7 +136,6 @@ class TruyenQQSource(BaseSource):
                             src = img.get('src') or img.get('data-src')
                             if not src: continue
                              
-                            # Skip decorations
                             if '.svg' in src.lower() or 'icon' in src.lower():
                                 continue
                                 
@@ -190,7 +143,7 @@ class TruyenQQSource(BaseSource):
                             if cover_url.startswith('//'):
                                 cover_url = 'https:' + cover_url
                             elif not cover_url.startswith('http'):
-                                cover_url = self.base_url.rstrip('/') + '/' + cover_url.lstrip('/')
+                                cover_url = working_domain.rstrip('/') + '/' + cover_url.lstrip('/')
                             break
                         
                         latest_chap = item.select_one('.last_chapter a')
@@ -231,7 +184,7 @@ class TruyenQQSource(BaseSource):
             request_id = manga_id if manga_id.startswith('truyen-tranh/') else f"truyen-tranh/{manga_id}"
             url = f"{self.base_url}/{request_id}"
             
-            html = await self._fetch_html(url)
+            html = await self._fetch_html(url, cookies=self.cookies)
             if not html: return None
             
             soup = BeautifulSoup(html, 'html.parser')
@@ -298,7 +251,7 @@ class TruyenQQSource(BaseSource):
             request_id = chapter_id if chapter_id.startswith('truyen-tranh/') else f"truyen-tranh/{chapter_id}"
             url = f"{self.base_url}/{request_id}"
             
-            html = await self._fetch_html(url)
+            html = await self._fetch_html(url, cookies=self.cookies)
             if not html: return {"id": chapter_id, "pages": []}
             
             soup = BeautifulSoup(html, 'html.parser')
@@ -330,7 +283,7 @@ class TruyenQQSource(BaseSource):
         # TruyenQQ search URL: https://truyenqqno.com/tim-kiem/trang-1.html?q=...
         url = f"{self.base_url}/tim-kiem/trang-{page}.html?q={q}"
         
-        html = await self._fetch_html(url)
+        html = await self._fetch_html(url, cookies=self.cookies)
         if not html:
             return []
             

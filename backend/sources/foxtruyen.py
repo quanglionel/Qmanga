@@ -14,16 +14,7 @@ class FoxTruyenSource(NetTruyenSource):
         self.headers.update({'Referer': f'{self.base_url}/'})
 
     async def get_html(self, url):
-        try:
-            async with httpx.AsyncClient(headers=self.headers, timeout=10.0, follow_redirects=True) as client:
-                response = await client.get(url)
-                if response.status_code == 200:
-                    return response.text
-                print(f"[FoxTruyen] Failed to fetch {url}, status: {response.status_code}")
-                return None
-        except Exception as e:
-            print(f"[FoxTruyen] Error fetching {url}: {e}")
-            return None
+        return await self._fetch_html(url)
 
     async def fetch_trending(self, page=1, limit=20):
         url = f"{self.base_url}/truyen-moi-cap-nhat/trang-{page}.html"

@@ -74,7 +74,7 @@ class DocTruyen5SSource(BaseSource):
             "Referer": "https://manga.io.vn/"
         }
 
-    async def fetch_trending(self, page: int = 1, limit: int = 30) -> Dict:
+    async def fetch_trending(self, page: int = 1, limit: int = 100) -> Dict:
         cache_key = f"trending_v1_{page}_{limit}"
         cached = self.get_from_cache(cache_key)
         if cached: return cached

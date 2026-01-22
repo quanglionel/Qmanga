@@ -28,7 +28,7 @@ class MadaraSource(BaseSource):
         }
         self.load_cache()
 
-    async def fetch_trending(self, page: int = 1, limit: int = 24) -> Dict:
+    async def fetch_trending(self, page: int = 1, limit: int = 100) -> Dict:
         """Fetch trending/latest updates. Madara usually has ajax load or standard pagination."""
         # Standard Madara trending/popular page often at /page/X/?m_orderby=trending
         # Or just latest items

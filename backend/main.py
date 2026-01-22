@@ -348,7 +348,7 @@ async def get_trending(page: int = 1, sources: str = None, lang: str = None):
         async def fetch_from_source(source_id, source):
             try:
                 if hasattr(source, 'fetch_trending'):
-                    res = await source.fetch_trending(page=page, limit=50)
+                    res = await source.fetch_trending(page=page, limit=100)
                 else:
                     res = await source.fetch_trending_manga(page=page)
                 

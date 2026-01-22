@@ -17,7 +17,7 @@ class MangaDexSource(BaseSource):
     
     cache_file = "mangadex_cache.json"
     
-    async def fetch_trending(self, page: int = 1, limit: int = 18) -> List[Dict]:
+    async def fetch_trending(self, page: int = 1, limit: int = 100) -> List[Dict]:
         """Fetch popular manga from MangaDex"""
         cache_key = f"trending_{page}_{limit}"
         
@@ -172,7 +172,7 @@ class MangaDexSource(BaseSource):
 mangadex = MangaDexSource()
 
 # Compatibility wrappers
-async def fetch_trending_manga(page=1, limit=18):
+async def fetch_trending_manga(page=1, limit=100):
     return await mangadex.fetch_trending(page, limit)
 
 async def fetch_manga_details(manga_id: str):

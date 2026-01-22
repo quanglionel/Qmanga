@@ -1,14 +1,12 @@
-FROM python:3.11-slim
+FROM python:3.11
 
 WORKDIR /app
 
-# Install system dependencies for curl_cffi and building packages
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    libcurl4 \
+    libcurl4-openssl-dev \
+    libssl-dev \
     libnss3 \
-    libnspr4 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies

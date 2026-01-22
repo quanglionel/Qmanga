@@ -379,7 +379,10 @@ async def get_trending(page: int = 1, sources: str = None, lang: str = None):
                     item['is_nsfw'] = is_nsfw_source
                 return items
             except Exception as e:
-                print(f"[API] Lỗi từ {source_id}: {e}")
+                import traceback
+                error_detail = traceback.format_exc()
+                print(f"[API ERROR] Nguồn {source_id} thất bại: {e}")
+                print(f"Chi tiết: {error_detail}")
                 return []
         
         # Create tasks for selected sources only

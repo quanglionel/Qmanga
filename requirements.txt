@@ -4,3 +4,4 @@ fastapi
 uvicorn[standard]
 pydantic
 curl_cffi
+cffi

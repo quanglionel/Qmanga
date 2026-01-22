@@ -1,11 +1,14 @@
-"""
-TruyenQQ Source - Implementation of BaseSource (Scraping)
-"""
-
 import httpx
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional
 from .base import BaseSource
+
+# Try to import curl_cffi for Cloudflare bypass
+try:
+    from curl_cffi.requests import AsyncSession
+    HAS_CURL_CFFI = True
+except ImportError:
+    HAS_CURL_CFFI = False
 
 
 class TruyenQQSource(BaseSource):
@@ -28,6 +31,30 @@ class TruyenQQSource(BaseSource):
         self.cookies = {}
         self.load_cookies()
 
+    async def _fetch_html(self, url: str) -> Optional[str]:
+        """Fetch HTML with Cloudflare bypass using curl_cffi, fallback to httpx"""
+        if HAS_CURL_CFFI:
+            try:
+                async with AsyncSession(impersonate="chrome120", verify=False) as client:
+                    resp = await client.get(url, headers=self.headers, cookies=self.cookies, timeout=25)
+                    if resp.status_code == 200:
+                        return resp.text
+                    print(f"[TruyenQQ] CF Bypass status: {resp.status_code}")
+            except Exception as e:
+                print(f"[TruyenQQ] curl_cffi error: {e}")
+        
+        # Fallback to httpx
+        try:
+            async with httpx.AsyncClient(headers=self.headers, cookies=self.cookies, timeout=30.0, follow_redirects=True) as client:
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    return resp.text
+        except Exception as e:
+            print(f"[TruyenQQ] httpx error: {e}")
+        
+        return None
+
+
     def load_cookies(self):
         try:
             import json
@@ -43,107 +70,106 @@ class TruyenQQSource(BaseSource):
     
     async def fetch_trending(self, page: int = 1, limit: int = 100) -> List[Dict]:
         """Fetch popular manga from TruyenQQ with 100 items limit"""
-        cache_key = f"trending_v2_{page}_{limit}"
+        cache_key = f"trending_v3_{page}_{limit}"
         
         cached = self.get_from_cache(cache_key)
         if cached:
             return cached
             
-        async with httpx.AsyncClient(headers=self.headers, cookies=self.cookies, timeout=30.0, follow_redirects=True) as client:
-            try:
-                results = []
-                current_api_page = (page - 1) * 3 + 1
+        try:
+            results = []
+            current_api_page = (page - 1) * 3 + 1
+            
+            while len(results) < limit and current_api_page < 10:
+                url = f"{self.base_url}/truyen-moi-cap-nhat/trang-{current_api_page}.html"
+                if current_api_page == 1:
+                    url = f"{self.base_url}/truyen-moi-cap-nhat.html"
                 
-                while len(results) < limit and current_api_page < 10:
-                    url = f"{self.base_url}/truyen-moi-cap-nhat/trang-{current_api_page}.html"
-                    if current_api_page == 1:
-                        url = f"{self.base_url}/truyen-moi-cap-nhat.html"
+                html = await self._fetch_html(url)
+                if not html:
+                    break
                     
-                    resp = await client.get(url)
-                    if resp.status_code != 200:
-                        break
+                soup = BeautifulSoup(html, 'html.parser')
+                items = soup.select('.list_grid li')
+                if not items:
+                    break
+                    
+                for item in items:
+                    title_el = item.select_one('.book_name a')
+                    if not title_el: continue
+                    
+                    title = title_el.text.strip()
+                    href = title_el['href']
+                    if href.startswith('/'):
+                        raw_id = href.strip('/')
+                    else:
+                        raw_id = href.replace(self.base_url, '').strip('/')
+                    
+                    # Remove 'truyen-tranh/' prefix if present to normalize IDs
+                    manga_id = raw_id.replace('truyen-tranh/', '')
+                    
+                    imgs = item.select('img')
+                    cover_url = ""
+                    for img in imgs:
+                        src = img.get('src') or img.get('data-src')
+                        if not src: continue
+                         
+                        # Skip decoration/holiday images
+                        classes = img.get('class', [])
+                        if not isinstance(classes, list): classes = [str(classes)]
                         
-                    soup = BeautifulSoup(resp.text, 'html.parser')
-                    items = soup.select('.list_grid li')
-                    if not items:
-                        break
-                        
-                    for item in items:
-                        title_el = item.select_one('.book_name a')
-                        if not title_el: continue
-                        
-                        title = title_el.text.strip()
-                        href = title_el['href']
-                        if href.startswith('/'):
-                            raw_id = href.strip('/')
-                        else:
-                            raw_id = href.replace(self.base_url, '').strip('/')
-                        
-                        # Remove 'truyen-tranh/' prefix if present to normalize IDs
-                        manga_id = raw_id.replace('truyen-tranh/', '')
-                        
-                        imgs = item.select('img')
-                        cover_url = ""
-                        for img in imgs:
-                            src = img.get('src') or img.get('data-src')
-                            if not src: continue
-                             
-                            # Skip decoration/holiday images
-                            classes = img.get('class', [])
-                            if not isinstance(classes, list): classes = [str(classes)]
+                        # Check classes
+                        if 'holiday-ui-wrapper' in classes or any('holiday' in c for c in classes):
+                            continue
                             
-                            # Check classes
-                            if 'holiday-ui-wrapper' in classes or any('holiday' in c for c in classes):
-                                continue
-                                
-                            # Check src content
-                            src_lower = src.lower()
-                            if 'cloud' in src_lower or 'tet' in src_lower or 'icon' in src_lower:
-                                continue
-                                
-                            # Check alt text
-                            alt = img.get('alt', '').lower()
-                            if 'cloud' in alt:
-                                continue
+                        # Check src content
+                        src_lower = src.lower()
+                        if 'cloud' in src_lower or 'tet' in src_lower or 'icon' in src_lower:
+                            continue
+                            
+                        # Check alt text
+                        alt = img.get('alt', '').lower()
+                        if 'cloud' in alt:
+                            continue
 
-                            # Skip SVGs (decorations)
-                            if '.svg' in src_lower:
-                                continue
-                                
-                            cover_url = src
-                            if cover_url.startswith('//'):
-                                cover_url = 'https:' + cover_url
-                            elif not cover_url.startswith('http'):
-                                cover_url = self.base_url.rstrip('/') + '/' + cover_url.lstrip('/')
-                            break
-                        
-                        latest_chap = item.select_one('.last_chapter a')
-                        chap_text = latest_chap.text.strip() if latest_chap else "N/A"
-                        
-                        results.append({
-                            "id": manga_id,
-                            "title": title,
-                            "cover": cover_url,
-                            "latest_chapter": chap_text,
-                            "updated_at": "" 
-                        })
-                        
-                        if len(results) >= limit:
-                            break
+                        # Skip SVGs (decorations)
+                        if '.svg' in src_lower:
+                            continue
+                            
+                        cover_url = src
+                        if cover_url.startswith('//'):
+                            cover_url = 'https:' + cover_url
+                        elif not cover_url.startswith('http'):
+                            cover_url = self.base_url.rstrip('/') + '/' + cover_url.lstrip('/')
+                        break
                     
-                    current_api_page += 1
+                    latest_chap = item.select_one('.last_chapter a')
+                    chap_text = latest_chap.text.strip() if latest_chap else "N/A"
+                    
+                    results.append({
+                        "id": manga_id,
+                        "title": title,
+                        "cover": cover_url,
+                        "latest_chapter": chap_text,
+                        "updated_at": "" 
+                    })
+                    
+                    if len(results) >= limit:
+                        break
                 
-                response = {
-                    "active_manga": results[:limit],
-                    "new_manga": []
-                }
-                
-                self.set_cache(cache_key, response)
-                return response
-                
-            except Exception as e:
-                print(f"[TruyenQQ] Trending Error: {e}")
-                return {"active_manga": [], "new_manga": []}
+                current_api_page += 1
+            
+            response = {
+                "active_manga": results[:limit],
+                "new_manga": []
+            }
+            
+            self.set_cache(cache_key, response)
+            return response
+            
+        except Exception as e:
+            print(f"[TruyenQQ] Trending Error: {e}")
+            return {"active_manga": [], "new_manga": []}
 
     
     async def fetch_manga_details(self, manga_id: str) -> Optional[Dict]:

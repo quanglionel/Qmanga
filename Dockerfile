@@ -2,11 +2,14 @@ FROM python:3.11
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies + Node.js for cloudscraper
 RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     libssl-dev \
     libnss3 \
+    curl \
+    && curl -sL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies

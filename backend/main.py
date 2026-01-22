@@ -12,6 +12,20 @@ from datetime import datetime
 
 app = FastAPI()
 
+@app.on_event("startup")
+async def check_libs():
+    try:
+        from curl_cffi.requests import AsyncSession
+        print("[System] curl_cffi: LOADED")
+    except Exception as e:
+        print(f"[System] curl_cffi: FAILED ({e})")
+    
+    try:
+        import cloudscraper
+        print("[System] cloudscraper: LOADED")
+    except Exception as e:
+        print(f"[System] cloudscraper: FAILED ({e})")
+
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,

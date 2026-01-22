@@ -5,3 +5,4 @@ uvicorn[standard]
 pydantic
 curl_cffi
 cffi
+cloudscraper

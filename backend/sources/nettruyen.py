@@ -15,6 +15,12 @@ try:
 except ImportError:
     HAS_CURL_CFFI = False
 
+try:
+    import cloudscraper
+    HAS_CLOUDSCRAPER = True
+except ImportError:
+    HAS_CLOUDSCRAPER = False
+
 
 class NetTruyenSource(BaseSource):
     """Manga source implementation for NetTruyen scraping"""
@@ -37,25 +43,42 @@ class NetTruyenSource(BaseSource):
     item_selector = ".items .item"
     
     async def _fetch_html(self, url: str) -> Optional[str]:
-        """Fetch HTML with Cloudflare bypass using curl_cffi, fallback to httpx"""
-        # Try curl_cffi first (better for Cloudflare)
+        """Fetch HTML with triple fallback: curl_cffi -> cloudscraper -> httpx"""
+        # 1. Try curl_cffi (Chrome impersonation)
         if HAS_CURL_CFFI:
             try:
                 async with AsyncSession(impersonate="chrome120", verify=False) as client:
                     resp = await client.get(url, headers=self.headers, timeout=20)
                     if resp.status_code == 200:
                         return resp.text
+                    print(f"[NetTruyen] curl_cffi status: {resp.status_code} for {url}")
             except Exception as e:
-                print(f"[{self.name}] curl_cffi error: {e}")
-        
-        # Fallback to httpx
+                print(f"[NetTruyen] curl_cffi error: {str(e)[:100]}")
+
+        # 2. Try cloudscraper (Fallback using Node.js)
+        if HAS_CLOUDSCRAPER:
+            try:
+                import asyncio
+                def sync_fetch():
+                    scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False})
+                    return scraper.get(url, headers=self.headers, timeout=20)
+                
+                loop = asyncio.get_event_loop()
+                resp = await loop.run_in_executor(None, sync_fetch)
+                if resp.status_code == 200:
+                    return resp.text
+                print(f"[NetTruyen] cloudscraper status: {resp.status_code} for {url}")
+            except Exception as e:
+                print(f"[NetTruyen] cloudscraper error: {str(e)[:100]}")
+
+        # 3. Last resort: httpx
         try:
-            async with httpx.AsyncClient(headers=self.headers, timeout=30.0, follow_redirects=True) as client:
+            async with httpx.AsyncClient(headers=self.headers, timeout=15.0, follow_redirects=True, verify=False) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     return resp.text
-        except Exception as e:
-            print(f"[{self.name}] httpx error: {e}")
+                print(f"[NetTruyen] httpx final status: {resp.status_code} for {url}")
+        except: pass
         
         return None
 

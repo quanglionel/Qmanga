@@ -161,64 +161,51 @@ class BaseSource(ABC):
     async def _fetch_html(self, url: str, method: str = "GET", data: Any = None, custom_headers: dict = None, cookies: dict = None) -> Optional[str]:
         """
         Fetch HTML with triple fallback: curl_cffi -> cloudscraper -> httpx.
-        Centralized Cloudflare bypass logic with support for POST.
+        Optimized for Cloudflare bypass on cloud platforms.
         """
-        # Build more complete browser-like headers
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-        }
-        if custom_headers:
-            headers.update(custom_headers)
-            
         import random
-        await asyncio.sleep(random.uniform(0.1, 0.5))
-        
-        # 1. Try curl_cffi (Chrome impersonation - Best for Cloudflare)
-        if HAS_CURL_CFFI:
-            # Attempt 1: Desktop Chrome
-            try:
-                async with AsyncSession(impersonate="chrome120", verify=False) as client:
-                    if method.upper() == "POST":
-                        resp = await client.post(url, headers=headers, data=data, cookies=cookies, timeout=25)
-                    else:
-                        resp = await client.get(url, headers=headers, cookies=cookies, timeout=25)
-                        
-                    if resp.status_code == 200:
-                        return resp.text
-                    
-                    if resp.status_code == 403:
-                         print(f"[{self.name}] curl_cffi (Desktop): 403 Forbidden for {url}")
-                         # Attempt 2: Mobile Safari (Sometime Cloudflare is lighter on mobile)
-                         async with AsyncSession(impersonate="safari_ios_16_0", verify=False) as m_client:
-                              m_headers = headers.copy()
-                              m_headers["User-Agent"] = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
-                              if method.upper() == "POST":
-                                   resp = await m_client.post(url, headers=m_headers, data=data, cookies=cookies, timeout=25)
-                              else:
-                                   resp = await m_client.get(url, headers=m_headers, cookies=cookies, timeout=25)
-                              if resp.status_code == 200:
-                                   print(f"[{self.name}] curl_cffi: Success using Mobile Safari impersonation!")
-                                   return resp.text
-            except Exception as e:
-                print(f"[{self.name}] curl_cffi error: {str(e)[:100]}")
+        await asyncio.sleep(random.uniform(0.2, 0.6))
 
-        # 2. Try cloudscraper (Fallback using Node.js)
+        # 1. Try curl_cffi (Ultimate Bypass)
+        if HAS_CURL_CFFI:
+            # We try a few different fingerprints if one fails
+            fingerprints = ["chrome120", "chrome116", "safari_ios_16_0", "edge101"]
+            for target in fingerprints:
+                try:
+                    async with AsyncSession(impersonate=target, verify=False) as client:
+                        # CRITICAL: We only pass Referer and essential headers, 
+                        # let curl_cffi handle UA/Accept/Sec-Fetch to match fingerprint.
+                        headers = {}
+                        if custom_headers:
+                            # Filter out headers that might conflict with impersonation
+                            for k, v in custom_headers.items():
+                                if k.lower() not in ["user-agent", "accept-encoding"]:
+                                    headers[k] = v
+                        
+                        if method.upper() == "POST":
+                            resp = await client.post(url, headers=headers, data=data, cookies=cookies, timeout=30)
+                        else:
+                            resp = await client.get(url, headers=headers, cookies=cookies, timeout=30)
+                            
+                        if resp.status_code == 200:
+                            if "Cloudflare" in resp.text and "Checking your browser" in resp.text:
+                                continue # Try next fingerprint
+                            return resp.text
+                        
+                        if resp.status_code == 403:
+                             print(f"[{self.name}] curl_cffi ({target}): 403 Forbidden")
+                except Exception as e:
+                    print(f"[{self.name}] curl_cffi ({target}) error: {str(e)[:50]}")
+                    continue
+
+        # 2. Try cloudscraper (Fallback)
         if HAS_CLOUDSCRAPER:
             try:
                 def sync_fetch():
-                    # Try mobile scraper first as it's often more successful on cloud IPs
                     scraper = cloudscraper.create_scraper(browser={'browser': 'chrome', 'platform': 'android', 'mobile': True})
-                    s_headers = {"User-Agent": headers["User-Agent"]}
-                    if "Referer" in headers: s_headers["Referer"] = headers["Referer"]
+                    s_headers = {}
+                    if custom_headers and "Referer" in custom_headers: 
+                        s_headers["Referer"] = custom_headers["Referer"]
                     
                     if method.upper() == "POST":
                         return scraper.post(url, headers=s_headers, data=data, cookies=cookies, timeout=20)
@@ -230,21 +217,20 @@ class BaseSource(ABC):
                 if resp.status_code == 200:
                     return resp.text
             except Exception as e:
-                print(f"[{self.name}] cloudscraper error: {str(e)[:100]}")
+                print(f"[{self.name}] cloudscraper error: {str(e)[:50]}")
 
-        # 3. Last resort: httpx (No bypass)
+        # 3. Last resort: httpx
         if httpx:
             try:
-                async with httpx.AsyncClient(headers=headers, cookies=cookies, timeout=25.0, follow_redirects=True, verify=False) as client:
+                async with httpx.AsyncClient(timeout=25.0, follow_redirects=True, verify=False) as client:
+                    h = custom_headers if custom_headers else {}
                     if method.upper() == "POST":
-                        resp = await client.post(url, data=data)
+                        resp = await client.post(url, data=data, headers=h)
                     else:
-                        resp = await client.get(url)
+                        resp = await client.get(url, headers=h)
                     if resp.status_code == 200:
                         return resp.text
-                    print(f"[{self.name}] httpx status: {resp.status_code} for {url}")
-            except Exception as e:
-                print(f"[{self.name}] httpx error: {str(e)[:100]}")
+            except: pass
         
         return None
     

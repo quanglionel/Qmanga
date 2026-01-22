@@ -162,10 +162,20 @@ async function initSourceFilter() {
         const res = await fetch('/api/extensions');
         availableSources = await res.json();
 
-        // Load saved selection or select all by default
+        // Load saved selection 
         loadSelectedSources();
-        if (selectedSources === null) {
-            selectedSources = availableSources.map(s => s.id);
+        if (selectedSources === null || selectedSources.length === 0) {
+            // Default select: NetTruyen, TruyenQQ and ALWAYS Otruyen (for stability)
+            selectedSources = ['nettruyen', 'truyenqq', 'otruyen'];
+            // Also add all others if it's the very first time
+            if (!localStorage.getItem('selectedSources')) {
+                selectedSources = availableSources.map(s => s.id);
+            }
+        }
+
+        // Ensure otruyen is always there if nothing is selected or if we want to guarantee results
+        if (!selectedSources.includes('otruyen') && availableSources.some(s => s.id === 'otruyen')) {
+            selectedSources.push('otruyen');
         }
 
         renderSourceFilter();

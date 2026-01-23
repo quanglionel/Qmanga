@@ -72,6 +72,12 @@ async def proxy_image(url: str):
     elif "truyenqq" in url: found_referer = "https://truyenqqno.com/"
     elif "otruyen" in url: found_referer = "https://otruyen.cc"
     elif "truyenvn" in url: found_referer = "https://truyenvn.shop/"
+    elif "hentaivn" in url: found_referer = "https://hentaivn.taxi/"
+    
+    # Generic Fallback: If no referer found, use the image's own root domain
+    # This fixes issues with sites checking for same-origin or same-site-ish referers
+    if not found_referer and target_domain:
+        found_referer = f"{parsed.scheme}://{target_domain}/"
     
     if found_referer:
         headers["Referer"] = found_referer

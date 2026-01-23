@@ -534,8 +534,7 @@ async def search_manga(q: str, source: str = None):
 
 
 
-@app.get("/api/manga/{manga_id}")
-
+@app.get("/api/manga/{manga_id:path}")
 async def get_manga_details(manga_id: str, source: str = None):
     try:
         # Use specified source or fall back to active source
@@ -607,7 +606,7 @@ class HistoryEntry(BaseModel):
     manga_cover: str
     chapter_title: str
 
-@app.post("/api/progress/{manga_id}")
+@app.post("/api/progress/{manga_id:path}")
 async def update_progress(manga_id: str, progress: ProgressUpdate):
     import time
     
@@ -691,7 +690,7 @@ async def get_library():
     results.sort(key=lambda x: x['added_at'], reverse=True)
     return results
 
-@app.post("/api/library/{manga_id}")
+@app.post("/api/library/{manga_id:path}")
 async def add_to_library(manga_id: str):
     import time
     if manga_id not in USER_LIBRARY:
@@ -713,7 +712,7 @@ async def add_to_library(manga_id: str):
     save_data()
     return {"status": "added", "manga_id": manga_id}
 
-@app.delete("/api/library/{manga_id}")
+@app.delete("/api/library/{manga_id:path}")
 async def remove_from_library(manga_id: str):
     if manga_id in USER_LIBRARY:
         del USER_LIBRARY[manga_id]

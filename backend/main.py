@@ -40,66 +40,78 @@ async def proxy_image(url: str):
     if not url:
         return Response(status_code=404)
     
+    # Default Headers
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://www.google.com/"
     }
     
-    # Dynamic Referer matching
-    # Try to find a source whose base_url matches the image URL's domain
+    # Dynamic Referer Logic
+    found_referer = None
     target_domain = ""
     try:
         from urllib.parse import urlparse
-        parsed_target = urlparse(url)
-        target_domain = parsed_target.netloc.lower()
+        parsed = urlparse(url)
+        target_domain = parsed.netloc.lower()
     except: pass
 
-    found_referer = None
     if target_domain:
+        # 1. Try to find matching source
         for source_id, source in SOURCES.items():
             if not hasattr(source, 'base_url'): continue
-            
-            source_domain = ""
             try:
-                source_domain = urlparse(source.base_url).netloc.lower()
+                src_domain = urlparse(source.base_url).netloc.lower()
+                if src_domain and (src_domain in target_domain or target_domain in src_domain):
+                    found_referer = source.base_url
+                    break
             except: continue
-            
-            if source_domain and (source_domain in target_domain or target_domain in source_domain):
-                found_referer = source.base_url
-                break
 
+    # 2. Hardcoded overrides
+    if "mangadex" in url: found_referer = "https://mangadex.org/"
+    elif "nettruyen" in url: found_referer = "https://www.nettruyennew.com/"
+    elif "truyenqq" in url: found_referer = "https://truyenqqno.com/"
+    elif "otruyen" in url: found_referer = "https://otruyen.cc"
+    elif "truyenvn" in url: found_referer = "https://truyenvn.shop/"
+    
     if found_referer:
         headers["Referer"] = found_referer
-    else:
-        # Fallback to smart generic referrers
-        if "mangadex" in url:
-            headers["Referer"] = "https://mangadex.org/"
-        elif "nettruyen" in url:
-            headers["Referer"] = "https://www.nettruyennew.com/"
-        elif "truyenqq" in url:
-            headers["Referer"] = "https://truyenqqno.com/"
-        elif "otruyen" in url or "img.otruyen" in url:
-            headers["Referer"] = "https://otruyen.cc"
-        elif "truyenvn" in url:
-            headers["Referer"] = "https://truyenvn.shop/"
 
-    async with httpx.AsyncClient(follow_redirects=True, timeout=30.0, verify=False) as client:
+    # Fetch Logic with Fallback: curl_cffi -> httpx
+    try:
+        # Try curl_cffi first (Best for Cloudflare/Anti-bot)
         try:
+            from curl_cffi.requests import AsyncSession
+            async with AsyncSession(impersonate="chrome120", verify=False) as s:
+                # curl_cffi manages its own UA, but we set Referer
+                # Note: We must NOT pass a conflicting User-Agent header if using impersonate
+                req_headers = {"Referer": headers["Referer"]} if "Referer" in headers else {}
+                
+                resp = await s.get(url, headers=req_headers, timeout=20)
+                if resp.status_code == 200:
+                    return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
+                elif resp.status_code == 403:
+                    print(f"[Proxy] curl_cffi 403 for {url}")
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"[Proxy] curl_cffi error: {e}")
+
+        # Fallback to standard httpx
+        async with httpx.AsyncClient(follow_redirects=True, timeout=20.0, verify=False) as client:
             resp = await client.get(url, headers=headers)
             if resp.status_code != 200:
-                 print(f"[Proxy] Fail {resp.status_code} for {url} (Ref: {headers.get('Referer')})")
-                 # Try without referer if failed
+                 # Last ditch: try without referer
                  if resp.status_code == 403:
-                     resp = await client.get(url, headers={"User-Agent": headers["User-Agent"]})
-                     if resp.status_code == 200:
-                         return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
-                 
-                 # If still failing, return placeholder or error
-                 return Response(status_code=resp.status_code)
-                 
+                      resp = await client.get(url)
+            
+            if resp.status_code != 200:
+                return Response(status_code=resp.status_code)
+                
             return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
-        except Exception as e:
-            print(f"Proxy Error: {e} for {url}")
-            return Response(status_code=404)
+
+    except Exception as e:
+        print(f"Proxy Error: {e} for {url}")
+        return Response(status_code=404)
 
 # --- Source Management ---
 # --- Source Management ---

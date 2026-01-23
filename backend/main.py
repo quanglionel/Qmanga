@@ -92,62 +92,39 @@ async def proxy_image(url: str):
 
 # --- Source Management ---
 # --- Source Management ---
-# --- Source Management ---
 from sources.otruyen import otruyen
 from sources.mangadex import mangadex 
 from sources.nettruyen import nettruyen
 from sources.truyenqq import truyenqq
+from sources.nhattruyen import nhattruyen
 
-# Individual new sources
-source_imports = [
-    ("nhattruyen", "nhattruyen"),
-]
-
-NEW_SOURCES = {}
-
-# Import from individual files
-for module_name, class_name in source_imports:
-    try:
-        # Import from sources package
-        module = __import__(f"sources.{module_name}", fromlist=[class_name])
-        if hasattr(module, class_name):
-            obj = getattr(module, class_name)
-            NEW_SOURCES[module_name] = obj() if isinstance(obj, type) else obj
-    except Exception as e:
-        print(f"Failed to import {module_name}: {e}")
-
-# Import aggregated clones
+# Import aggregated sources
 try:
     from sources.aggregated_sources import (
         doctruyen3q, truyentranh3q, toptruyen, 
         nettruyenco, nettruyenx, 
         doctruyen5s, foxtruyen, truyenvn
     )
-    agg_map = {
+    AGGREGATED_SOURCES = {
         "doctruyen3q": doctruyen3q, "truyentranh3q": truyentranh3q, 
         "toptruyen": toptruyen, "nettruyenco": nettruyenco, 
         "nettruyenx": nettruyenx,
         "doctruyen5s": doctruyen5s, "truyenvn": truyenvn,
         "foxtruyen": foxtruyen
     }
-    NEW_SOURCES.update(agg_map)
 except Exception as e:
     print(f"Failed to load aggregated sources: {e}")
+    AGGREGATED_SOURCES = {}
 
-
-
-import json
-
-# Simplified Source Registry
+# Unified Source Registry
 SOURCES = {
     "otruyen": otruyen,
     "mangadex": mangadex,
     "nettruyen": nettruyen,
     "truyenqq": truyenqq,
+    "nhattruyen": nhattruyen,
+    **AGGREGATED_SOURCES
 }
-
-# Add new sources
-SOURCES.update(NEW_SOURCES)
 
 # --- Dynamic Domain Sync Integration ---
 from domain_sync import sync_domains, get_cached_domains
@@ -169,7 +146,7 @@ def apply_dynamic_domains():
 apply_dynamic_domains()
 
 @app.on_event("startup")
-async def startup_event():
+async def start_domain_sync():
     # Run sync in background on startup
     asyncio.create_task(sync_domains_periodically())
 
@@ -385,7 +362,8 @@ async def get_trending(page: int = 1, sources: str = None, lang: str = None):
                 if hasattr(source, 'fetch_trending'):
                     res = await source.fetch_trending(page=page, limit=100)
                 else:
-                    res = await source.fetch_trending_manga(page=page)
+                    # Should not happen with new BaseSource structure
+                    res = {"active_manga": [], "new_manga": []}
                 
                 items = res.get('active_manga', []) if isinstance(res, dict) else []
                 is_nsfw_source = getattr(source, 'is_nsfw', False)
@@ -510,8 +488,6 @@ async def search_manga(q: str, source: str = None):
                     try:
                         if hasattr(src, 'fetch_trending'):
                             data = await src.fetch_trending(page=page, limit=50)
-                        else:
-                            data = await src.fetch_trending_manga(page=page)
                         
                         items = data.get('active_manga', []) if isinstance(data, dict) else []
                         all_items.extend(items)
@@ -570,8 +546,6 @@ async def get_manga_details(manga_id: str, source: str = None):
             
         if hasattr(src, 'fetch_manga_details'):
             data = await src.fetch_manga_details(manga_id)
-        else:
-            data = await src.fetch_manga_details(manga_id)
             
         if data:
             # Add source info to data
@@ -607,8 +581,6 @@ async def get_chapter_pages(chapter_id: str, source: str = None):
         print(f"[API] Chapter Request: {chapter_id} (Source: {getattr(src, 'name', 'Unknown')})")
         
         if hasattr(src, 'fetch_chapter_pages'):
-            result = await src.fetch_chapter_pages(chapter_id)
-        else:
             result = await src.fetch_chapter_pages(chapter_id)
         
         # Cache the result for future offline access
@@ -696,8 +668,6 @@ async def get_library():
             try:
                 if hasattr(source, 'fetch_manga_details'):
                     details = await source.fetch_manga_details(mid)
-                else:
-                    details = await source.fetch_manga_details(mid)
                 if details:
                     LIBRARY_CACHE[mid] = details
             except:
@@ -732,8 +702,6 @@ async def add_to_library(manga_id: str):
         source = get_source()
         if hasattr(source, 'fetch_manga_details'):
             details = await source.fetch_manga_details(manga_id)
-        else:
-            details = await source.fetch_manga_details(manga_id)
         
         if details:
             LIBRARY_CACHE[manga_id] = details
@@ -760,11 +728,7 @@ async def get_extensions_compat():
     """Compatibility endpoint for frontend using /api/extensions"""
     return await get_sources()
 
-# Mount the frontend static files
-# Note: In a real deployment, you might serve specific routes or use a separate frontend server.
-# For this simple fullstack setup, we'll serve the static directory.
-ABS_FRONTEND_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend')
-app.mount("/", StaticFiles(directory=ABS_FRONTEND_PATH, html=True), name="static")
+
 
 # --- Background Task: Check for Updates ---
 async def check_for_updates():
@@ -841,7 +805,7 @@ async def check_for_updates():
             await asyncio.sleep(60)
 
 @app.on_event("startup")
-async def startup_event():
+async def start_update_checker():
     asyncio.create_task(check_for_updates())
 
 @app.get("/api/notifications")

@@ -171,12 +171,4 @@ class MangaDexSource(BaseSource):
 # Singleton instance
 mangadex = MangaDexSource()
 
-# Compatibility wrappers
-async def fetch_trending_manga(page=1, limit=100):
-    return await mangadex.fetch_trending(page, limit)
 
-async def fetch_manga_details(manga_id: str):
-    return await mangadex.fetch_manga_details(manga_id)
-
-async def fetch_chapter_pages(chapter_id: str):
-    return await mangadex.fetch_chapter_pages(chapter_id)

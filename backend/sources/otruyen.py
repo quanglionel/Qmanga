@@ -194,12 +194,4 @@ class OtruyenSource(BaseSource):
 # Create singleton instance for easy import
 otruyen = OtruyenSource()
 
-# Legacy function wrappers for backward compatibility
-async def fetch_trending_manga(page=1, limit=18):
-    return await otruyen.fetch_trending(page, limit)
 
-async def fetch_manga_details(manga_id: str):
-    return await otruyen.fetch_manga_details(manga_id)
-
-async def fetch_chapter_pages(chapter_url: str):
-    return await otruyen.fetch_chapter_pages(chapter_url)

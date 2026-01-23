@@ -79,12 +79,23 @@ async def proxy_image(url: str):
             headers["Referer"] = "https://truyenqqno.com/"
         elif "otruyen" in url or "img.otruyen" in url:
             headers["Referer"] = "https://otruyen.cc"
+        elif "truyenvn" in url:
+            headers["Referer"] = "https://truyenvn.shop/"
 
     async with httpx.AsyncClient(follow_redirects=True, timeout=30.0, verify=False) as client:
         try:
             resp = await client.get(url, headers=headers)
             if resp.status_code != 200:
+                 print(f"[Proxy] Fail {resp.status_code} for {url} (Ref: {headers.get('Referer')})")
+                 # Try without referer if failed
+                 if resp.status_code == 403:
+                     resp = await client.get(url, headers={"User-Agent": headers["User-Agent"]})
+                     if resp.status_code == 200:
+                         return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
+                 
+                 # If still failing, return placeholder or error
                  return Response(status_code=resp.status_code)
+                 
             return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
         except Exception as e:
             print(f"Proxy Error: {e} for {url}")
@@ -825,4 +836,4 @@ app.mount("/", StaticFiles(directory=frontend_path, html=True), name="static")
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
